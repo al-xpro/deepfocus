@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useId } from "react";
+import { useEffect, useState, useRef, useCallback, useId, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
+
+const subscribeToNothing = () => () => {};
 
 const HOUR_LABELS: Record<number, string> = {
   0: "Midnight",
@@ -38,23 +40,14 @@ function PanelContent({
   onClose: () => void;
   showDragHandle?: boolean;
 }) {
-  const parts = getTimeParts(value);
-  const [hoursInput, setHoursInput] = useState(parts.hours);
-  const [minutesInput, setMinutesInput] = useState(parts.minutes);
-
-  useEffect(() => {
-    const p = getTimeParts(value);
-    setHoursInput(p.hours);
-    setMinutesInput(p.minutes);
-  }, [value]);
+  // The inputs always mirror `value`: every edit goes through onChange.
+  const { hours: hoursInput, minutes: minutesInput } = getTimeParts(value);
 
   const idPrefix = useId();
 
   const handleManualChange = (h: number, m: number) => {
     const clH = clamp(h, 0, 23);
     const clM = clamp(m, 0, 59);
-    setHoursInput(clH);
-    setMinutesInput(clM);
     onChange(clH + clM / 60);
   };
 
@@ -155,7 +148,8 @@ export default function SceneTimePanel({
   label: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // false on the server and during hydration, true afterwards: the portal needs document.body.
+  const mounted = useSyncExternalStore(subscribeToNothing, () => true, () => false);
   const containerRef = useRef<HTMLDivElement>(null);
   const portalRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -205,10 +199,6 @@ export default function SceneTimePanel({
 
     setDropdownPos({ top: rect.bottom + gap, left });
   }, [isOpen]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

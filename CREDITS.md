@@ -1,0 +1,58 @@
+# Credits
+
+DeepFocus is a fictional product. This concept site was designed and developed by
+[AlxPro](https://alxpro.com). The third-party material it uses is listed here, with its
+license.
+
+## 3D models
+
+All from [Sketchfab](https://sketchfab.com). Changes to every model: geometry compressed
+with Draco and textures converted to WebP (glTF-Transform); scaled and placed in the
+scene; material color, roughness and environment intensity adjusted at runtime.
+
+| File | Model | Author | License |
+| --- | --- | --- | --- |
+| `public/models/promontory.glb` | ["Rock, reef, promontory, mountain, coast, seaside"](https://sketchfab.com/3d-models/rock-reef-promontory-mountain-coast-seaside-545fb84cd03b48bc8823475a0c620b8d) | [Metazeon](https://sketchfab.com/Metazeon) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/rock_reef.glb` | ["Rock, reef, beaches, seaside, small island"](https://sketchfab.com/3d-models/rock-reef-beaches-seaside-small-island-414de6175f2d4a1d8e2cb5e7d11ca2d7) | [Metazeon](https://sketchfab.com/Metazeon) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/cliff_rock.glb` | ["Free_cliff_rock"](https://sketchfab.com/3d-models/free-cliff-rock-75fb6b34dc0d46259dedc8c7cd94e7b7) | [Kwinto](https://sketchfab.com/kwinto) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/group_of_cliff_1.glb` | ["Cliffs"](https://sketchfab.com/3d-models/cliffs-14fe5023840146179c8515093e88fae0) | [DJMaesen](https://sketchfab.com/bumstrum) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/group_of_cliff_2.glb` | ["Cliff"](https://sketchfab.com/3d-models/cliff-082da1166a814c6e9c9e6c1b38159e4e) | [DJMaesen](https://sketchfab.com/bumstrum) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/volcano.glb` | ["Volcano"](https://sketchfab.com/3d-models/volcano-0aa90a20d5cb47de90ec5d1bcd5aff31) | [k3ddesign](https://sketchfab.com/K3DDesign) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/blue_whale.glb` | ["Blue whale"](https://sketchfab.com/3d-models/blue-whale-a7969d8046754fa1b90f989ef451df1c) | [dannzjs](https://sketchfab.com/dannzjs) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/dolphin.glb` | ["Model 61A - Bottlenose Dolphin"](https://sketchfab.com/3d-models/model-61a-bottlenose-dolphin-2ec20f15b08c4c2fb16e4df5d837b893) | [DigitalLife3D](https://sketchfab.com/DigitalLife3D) | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
+| `public/models/turtle.glb` | ["Model 72B - Juvenile Green Sea Turtle"](https://sketchfab.com/3d-models/model-72b-juvenile-green-sea-turtle-c90a930f8b2a4cc8bc516742a0df01d9) | [DigitalLife3D](https://sketchfab.com/DigitalLife3D) | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
+
+`blue_whale.glb` and `turtle.glb` are in the repository but not used by the scene yet.
+
+## Textures
+
+- `public/textures/waternormals.jpg`: the water normal map from the
+  [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/textures),
+  © three.js authors, [MIT License](https://github.com/mrdoob/three.js/blob/dev/LICENSE).
+
+## Code
+
+- The sky and the water are three.js's `Sky` and `Water` objects from
+  [`three/examples/jsm`](https://github.com/mrdoob/three.js/tree/dev/examples/jsm),
+  [MIT License](https://github.com/mrdoob/three.js/blob/dev/LICENSE).
+- The sun-position formulas in `components/scene/timeUtils.ts` follow
+  [SunCalc](https://github.com/mourner/suncalc) by Vladimir Agafonkin,
+  [BSD 2-Clause License](https://github.com/mourner/suncalc/blob/master/LICENSE).
+
+## Fonts
+
+- [Libre Baskerville](https://fonts.google.com/specimen/Libre+Baskerville) and
+  [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond), under the
+  [SIL Open Font License 1.1](https://openfontlicense.org), self-hosted at build time by
+  `next/font`.
+
+## Music
+
+- "Ocean Waves" by [Peder B. Helland](https://www.youtube.com/@PederBHellandMusic), played
+  through YouTube's embedded player. It isn't stored in this repository. It will be
+  replaced by a self-hosted, licensed ambient track.
+
+## Original work
+
+Everything else (the code, the copy, the DeepFocus mark and the screenshots in
+`.github/assets/`) was made for this project by AlxPro.

@@ -3,10 +3,33 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { musicConfig } from "./musicConfig";
 
+// The slice of the YouTube IFrame Player API this component uses.
+interface YouTubePlayer {
+  playVideo(): void;
+  pauseVideo(): void;
+  setVolume(volume: number): void;
+  getVolume(): number;
+}
+
+interface YouTubePlayerEvent {
+  target: YouTubePlayer;
+}
+
+interface YouTubeNamespace {
+  Player: new (
+    elementId: string,
+    options: {
+      videoId: string;
+      playerVars?: Record<string, number>;
+      events?: { onReady?: (event: YouTubePlayerEvent) => void };
+    }
+  ) => YouTubePlayer;
+}
+
 declare global {
   interface Window {
     onYouTubeIframeAPIReady: () => void;
-    YT: any;
+    YT?: YouTubeNamespace;
   }
 }
 
@@ -17,7 +40,7 @@ export default function MusicToggle({
   isPlaying: boolean;
   onToggle: () => void;
 }) {
-  const playerRef       = useRef<any>(null);
+  const playerRef       = useRef<YouTubePlayer | null>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isReady, setIsReady] = useState(false);
 
@@ -43,6 +66,7 @@ export default function MusicToggle({
     if (!videoId || typeof window === "undefined") return;
 
     const initPlayer = () => {
+      if (!window.YT) return;
       playerRef.current = new window.YT.Player("youtube-player", {
         videoId,
         playerVars: {
@@ -60,7 +84,7 @@ export default function MusicToggle({
           // call we ever need to make.
         },
         events: {
-          onReady: (event: any) => {
+          onReady: (event: YouTubePlayerEvent) => {
             // setVolume does NOT require a gesture token — safe to call here.
             // The player is now unmuted and silent, ready for playVideo().
             event.target.setVolume(0);
