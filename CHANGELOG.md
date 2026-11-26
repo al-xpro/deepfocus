@@ -13,8 +13,9 @@ All notable changes to this project, newest first. Versions follow
   request), Dependabot auto-merge for minor and patch updates, and CI (typecheck, lint,
   build).
 - A control dock: the scene time, the ocean sound and focus mode.
-- Panels built on Radix: a popover on desktop, a bottom sheet on phones; Escape closes
-  them and focus returns to the trigger.
+- Panels: a Radix popover on desktop; on phones a bottom sheet that follows the field
+  drawer on alxpro.com (drag anywhere, a short flick dismisses, focus stays inside).
+  Escape closes both and focus returns to the trigger.
 - A time panel with Live and Custom, a 24-hour scrubber and four presets.
 - Focus mode (`F`) and focus sessions of 15, 30 or 60 minutes, shown as a progress bar
   (the countdown fades after a moment and returns on hover).
@@ -32,8 +33,11 @@ All notable changes to this project, newest first. Versions follow
   day, black at dawn, dusk and night, tinted by the scene's light), DM Sans throughout,
   ultra-minimal copy, one keyboard focus ring, text contrast AA at every time of day, and
   the DeepFocus name and a new mark everywhere.
-- The loader is gone: the sky and the sea draw at once and each model fades in as it
-  arrives, with a thin progress line.
+- A new loading panel: the mark and a thin line over ink, until the whole scene has
+  arrived.
+- The scene fills the page: at least the screen and 34rem, so a phone held sideways
+  scrolls a whole landscape instead of squashing it.
+- The time choice (live or custom) is remembered, and the 404 page shows it too.
 
 ### Fixed
 

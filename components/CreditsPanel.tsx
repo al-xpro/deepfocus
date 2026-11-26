@@ -1,50 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { ScrollShadow, useScrollShadows } from "./useScrollShadows";
 import GlassPanel from "./GlassPanel";
 import { CREDITS } from "./credits";
 
 const link = "underline decoration-current/30 underline-offset-2 hover:decoration-current";
 
-/**
- * A scrolling list with a soft shadow at the top and the bottom, each shown only
- * when there's more to scroll that way.
- */
+/** The list scrolls inside a short window, with shadows where there's more. */
 function ScrollArea({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ top: false, bottom: false });
-
-  const measure = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const top = el.scrollTop > 1;
-    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
-    setEdges((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
-  }, []);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [measure]);
-
-  const shadow = "pointer-events-none absolute inset-x-0 h-8 transition-opacity duration-300";
-
+  const { scrollRef, canScrollUp, canScrollDown } = useScrollShadows();
   return (
     <div className="relative -mx-5">
-      <div ref={ref} onScroll={measure} className="max-h-[min(60vh,28rem)] overflow-y-auto px-5">
+      <ScrollShadow edge="top" visible={canScrollUp} />
+      <div ref={scrollRef} className="max-h-[min(38vh,15rem)] overflow-y-auto overscroll-contain px-5">
         {children}
       </div>
-      <div
-        aria-hidden="true"
-        className={`${shadow} top-0 bg-linear-to-b from-black/20 to-transparent ${edges.top ? "opacity-100" : "opacity-0"}`}
-      />
-      <div
-        aria-hidden="true"
-        className={`${shadow} bottom-0 bg-linear-to-t from-black/20 to-transparent ${edges.bottom ? "opacity-100" : "opacity-0"}`}
-      />
+      <ScrollShadow edge="bottom" visible={canScrollDown} />
     </div>
   );
 }

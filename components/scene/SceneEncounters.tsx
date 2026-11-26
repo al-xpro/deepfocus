@@ -1298,54 +1298,9 @@ function DolphinEncounter({
   );
 }
 
-const FADE_IN_SECONDS = 1.4;
-
-/**
- * Fades a model in when it arrives instead of popping it in: its materials go
- * from transparent to opaque, then back to their own settings.
- */
-function FadeIn({ children }: { children: ReactNode }) {
-  const group = useRef<THREE.Group>(null);
-  const startedAt = useRef<number | null>(null);
-  const materials = useRef<Array<{ material: THREE.Material; opacity: number; transparent: boolean }>>([]);
-  const done = useRef(false);
-
-  useFrame((state) => {
-    if (done.current || !group.current) return;
-    if (startedAt.current === null) {
-      startedAt.current = state.clock.elapsedTime;
-      const seen = new Set<THREE.Material>();
-      group.current.traverse((child) => {
-        const mesh = child as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-          if (!material || seen.has(material)) continue;
-          seen.add(material);
-          materials.current.push({ material, opacity: material.opacity, transparent: material.transparent });
-          material.transparent = true;
-          material.opacity = 0;
-        }
-      });
-    }
-    const t = Math.min(1, (state.clock.elapsedTime - startedAt.current) / FADE_IN_SECONDS);
-    const k = t * t * (3 - 2 * t);
-    for (const entry of materials.current) {
-      entry.material.opacity = entry.opacity * k;
-      if (t >= 1) entry.material.transparent = entry.transparent;
-    }
-    if (t >= 1) done.current = true;
-  });
-
-  return <group ref={group}>{children}</group>;
-}
-
-/** Each model loads on its own and fades in; nothing waits for the slowest one. */
+/** Each model loads on its own boundary; the loading panel covers the wait. */
 function Arrival({ children }: { children: ReactNode }) {
-  return (
-    <Suspense fallback={null}>
-      <FadeIn>{children}</FadeIn>
-    </Suspense>
-  );
+  return <Suspense fallback={null}>{children}</Suspense>;
 }
 
 export default function SceneEncounters() {

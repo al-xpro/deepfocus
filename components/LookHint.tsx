@@ -39,7 +39,7 @@ export default function LookHint({ hidden }: { hidden: boolean }) {
   return (
     <p
       aria-hidden="true"
-      className={`pointer-events-none fixed inset-x-0 bottom-20 z-20 flex select-none items-center justify-center gap-2 text-xs font-light tracking-[0.04em] text-muted text-ocean transition-opacity duration-700 sm:bottom-24 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-20 z-20 flex select-none items-center justify-center gap-2 text-xs font-light tracking-[0.04em] text-muted text-ocean transition-opacity duration-700 sm:bottom-24 [@media(max-height:560px)]:hidden ${
         visible && !hidden ? "opacity-100" : "opacity-0"
       }`}
     >

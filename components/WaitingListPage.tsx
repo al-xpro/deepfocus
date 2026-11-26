@@ -8,6 +8,8 @@ import CreditsPanel from "./CreditsPanel";
 import LookHint from "./LookHint";
 import WaitlistForm from "./WaitlistForm";
 import { Logo } from "./Logo";
+import SceneLoader from "./SceneLoader";
+import { setTimePreference, useTimePreference } from "./timePreference";
 
 const OceanCanvas = dynamic(() => import("@/components/OceanCanvas"), {
   ssr: false,
@@ -15,10 +17,12 @@ const OceanCanvas = dynamic(() => import("@/components/OceanCanvas"), {
 });
 
 export default function WaitlistPage() {
-  const [timeOverride, setTimeOverride] = useState<number | null>(null);
+  const timeOverride = useTimePreference();
   const [focusMode, setFocusMode] = useState(false);
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
+  // If a model never arrives, the page still opens.
+  const [gaveUpWaiting, setGaveUpWaiting] = useState(false);
   const session = useSession();
   const inFocus = focusMode || session !== null;
   const focusButtonRef = useRef<HTMLButtonElement>(null);
@@ -29,6 +33,11 @@ export default function WaitlistPage() {
     setFocusMode(false);
     // Back to the control the visitor started from.
     requestAnimationFrame(() => focusButtonRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setGaveUpWaiting(true), 20_000);
+    return () => window.clearTimeout(timer);
   }, []);
 
   // F toggles focus mode, Escape leaves it. Typing in a field never triggers them.
@@ -50,28 +59,22 @@ export default function WaitlistPage() {
   }, [inFocus, enterFocus, exitFocus]);
 
   return (
-    <>
+    // The scene fills this page: at least the viewport and 34rem, so a phone
+    // held sideways scrolls a whole landscape instead of squashing it.
+    <div className="relative min-h-[max(100dvh,34rem)]">
+      <SceneLoader visible={!ready && !gaveUpWaiting} progress={progress} />
       <OceanCanvas
         timeOverrideHour={timeOverride}
         onProgressChange={setProgress}
         onReadyChange={setReady}
       />
       <div
-        className={`ocean-veil pointer-events-none fixed inset-0 z-10 ${inFocus ? "opacity-30" : "opacity-100"}`}
-      />
-
-      {/* The models load behind a thin line; the sky and the sea are already there. */}
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none fixed inset-x-0 top-0 z-50 h-px origin-left bg-accent transition-[transform,opacity] duration-500 ${
-          ready ? "opacity-0" : "opacity-80"
-        }`}
-        style={{ transform: `scaleX(${progress / 100})` }}
+        className={`ocean-veil pointer-events-none absolute inset-0 z-10 ${inFocus ? "opacity-30" : "opacity-100"}`}
       />
 
       <div
         inert={inFocus}
-        className={`pointer-events-none relative z-20 flex min-h-dvh w-full flex-col transition-opacity duration-700 ${
+        className={`pointer-events-none relative z-20 flex min-h-[max(100dvh,34rem)] w-full flex-col transition-opacity duration-700 ${
           inFocus ? "opacity-0" : "opacity-100"
         }`}
       >
@@ -84,7 +87,7 @@ export default function WaitlistPage() {
           </div>
           <Dock
             timeOverride={timeOverride}
-            onTimeChange={setTimeOverride}
+            onTimeChange={setTimePreference}
             onFocus={enterFocus}
             focusButtonRef={focusButtonRef}
           />
@@ -96,7 +99,7 @@ export default function WaitlistPage() {
             Early access
           </p>
           <h1 className="max-w-4xl text-balance text-[clamp(2.5rem,6.4vw,4.75rem)] font-normal leading-[1.04] tracking-[-0.035em] text-ocean-strong animate-fade-up [animation-delay:450ms]">
-            <em className="text-accent-adaptive italic">Deep work</em> sets sail.
+            <em className="text-accent-adaptive italic">Deep work</em><br /> sets sail.
           </h1>
           <p className="mt-5 text-lg font-extralight text-muted text-ocean animate-fade-up [animation-delay:600ms] sm:text-xl">
             A quiet workspace for makers.
@@ -107,7 +110,7 @@ export default function WaitlistPage() {
           </div>
         </main>
 
-        <footer className="pointer-events-auto mx-auto flex w-full min-w-[320px] max-w-5xl select-none items-center justify-between px-5 py-5 text-[0.8125rem] font-light text-muted text-ocean animate-fade-in sm:px-10 sm:py-8">
+        <footer className="pointer-events-auto mx-auto flex flex-wrap w-full min-w-[320px] max-w-5xl select-none items-center justify-between gap-x-5 px-5 py-5 text-[0.8125rem] font-light text-muted text-ocean animate-fade-in sm:px-10 sm:py-8">
           <span>© 2026 DeepFocus</span>
           <div className="flex items-center gap-5">
             <CreditsPanel />
@@ -128,6 +131,6 @@ export default function WaitlistPage() {
       ) : null}
 
       <LookHint hidden={inFocus} />
-    </>
+    </div>
   );
 }

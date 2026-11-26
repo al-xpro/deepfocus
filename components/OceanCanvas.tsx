@@ -39,9 +39,9 @@ function SceneLoadReporter({
 }
 
 /**
- * The 3D scene, full screen behind the page. The sky and the sea draw at once;
- * the models fade in as they arrive, and `onProgressChange` reports the
- * download so the page can show a progress line.
+ * The 3D scene, filling the page behind it: at least the viewport, and taller
+ * when the page is (a phone held sideways), so the landscape never squashes.
+ * `onProgressChange` and `onReadyChange` drive the loading panel.
  */
 export default function OceanCanvas({
   timeOverrideHour = null,
@@ -68,11 +68,9 @@ export default function OceanCanvas({
   return (
     <Canvas
       dpr={[1, 1.5]}
-      className="animate-fade-in"
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
+        position: "absolute",
+        inset: 0,
         width: "100%",
         height: "100%",
         pointerEvents: "auto",

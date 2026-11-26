@@ -72,41 +72,43 @@
 @property --glass-selected-fg { syntax: "<color>"; inherits: true; initial-value: #03070f; }
 @property --glass-rim { syntax: "<color>"; inherits: true; initial-value: transparent; }
 
+/* Light to dark (and back) is quick: the glass changes with the scene, not after it. */
 :root {
+  --glass-switch: 120ms;
   transition:
-    --sky-light var(--duration-slow) var(--ease-glass),
-    --scene-tint var(--duration-slow) var(--ease-glass),
-    --glass-base var(--duration-slow) var(--ease-glass),
-    --glass-fg var(--duration-slow) var(--ease-glass),
-    --glass-fg-muted var(--duration-slow) var(--ease-glass),
-    --glass-selected-fg var(--duration-slow) var(--ease-glass),
-    --glass-rim var(--duration-slow) var(--ease-glass);
+    --sky-light var(--glass-switch) ease-out,
+    --scene-tint var(--glass-switch) ease-out,
+    --glass-base var(--glass-switch) ease-out,
+    --glass-fg var(--glass-switch) ease-out,
+    --glass-fg-muted var(--glass-switch) ease-out,
+    --glass-selected-fg var(--glass-switch) ease-out,
+    --glass-rim var(--glass-switch) ease-out;
 }
 
 :root,
 [data-glass="dark"] {
-  --glass-base: rgb(0 0 0 / 0.14);
-  --glass-tint-amount: 14%;
+  --glass-base: rgb(0 0 0 / 0.06);
+  --glass-tint-amount: 10%;
   --glass-fg: #ffffff;
   --glass-fg-muted: rgb(255 255 255 / 0.72);
   --glass-selected-fg: #03070f;
   --glass-rim: rgb(255 255 255 / 0.36);
   --glass-rim-low: rgb(255 255 255 / 0.05);
-  --glass-hover: rgb(255 255 255 / 0.12);
-  --glass-well: rgb(255 255 255 / 0.07);
+  --glass-hover: rgb(255 255 255 / 0.1);
+  --glass-well: rgb(255 255 255 / 0.05);
   --glass-line: rgb(255 255 255 / 0.12);
 }
 
 [data-glass="light"] {
-  --glass-base: rgb(255 255 255 / 0.2);
-  --glass-tint-amount: 8%;
+  --glass-base: rgb(255 255 255 / 0.1);
+  --glass-tint-amount: 6%;
   --glass-fg: #03070f;
   --glass-fg-muted: rgb(3 7 15 / 0.68);
   --glass-selected-fg: #ffffff;
   --glass-rim: rgb(255 255 255 / 0.7);
   --glass-rim-low: rgb(255 255 255 / 0.16);
-  --glass-hover: rgb(3 7 15 / 0.07);
-  --glass-well: rgb(3 7 15 / 0.05);
+  --glass-hover: rgb(3 7 15 / 0.06);
+  --glass-well: rgb(3 7 15 / 0.04);
   --glass-line: rgb(3 7 15 / 0.1);
 }
 
@@ -123,8 +125,8 @@
   background:
     linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0) 55%),
     color-mix(in oklab, var(--glass-base), var(--scene-tint) var(--glass-tint-amount));
-  -webkit-backdrop-filter: var(--glass-filter, blur(8px) saturate(170%));
-  backdrop-filter: var(--glass-filter, blur(8px) saturate(170%));
+  -webkit-backdrop-filter: var(--glass-filter, blur(6px) saturate(160%));
+  backdrop-filter: var(--glass-filter, blur(6px) saturate(160%));
   --surface-shadow:
     inset 0 1px 0 0 var(--glass-rim),
     inset 0 -1px 0 0 var(--glass-rim-low),
@@ -158,7 +160,7 @@
 
 /* Panels hold more text: a little more blur, the same transparency. Use with `glass`. */
 @utility glass-panel {
-  --glass-filter: blur(16px) saturate(170%);
+  --glass-filter: blur(12px) saturate(160%);
 }
 
 /* A control inside a glass surface: no surface of its own until hovered. */
@@ -172,7 +174,7 @@
 
 /* The selected or primary state on glass: the glass's text color as a fill. */
 @utility glass-selected {
-  background-color: var(--glass-fg);
+  background-color: color-mix(in oklab, var(--glass-fg) 82%, transparent);
   color: var(--glass-selected-fg);
 }
 
@@ -205,15 +207,23 @@
    field draws it on the surface that holds it. */
 
 @layer base {
-  :focus-visible {
-    outline: 2px solid var(--color-accent);
+  /* The outline's color, width and offset never change, only its style when
+     focus arrives, so nothing about it can animate (any `transition-colors`
+     on a button would otherwise fade it in). */
+  *,
+  ::before,
+  ::after {
+    outline-color: var(--color-accent);
     outline-offset: 2px;
+    outline-width: 2px;
+  }
+  :focus-visible {
+    outline-style: solid;
   }
 
   .glass:has(input:focus-visible),
   .field:has(input:focus-visible) {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+    outline-style: solid;
   }
   :is(.glass, .field) input:focus-visible {
     outline: none;
@@ -260,7 +270,7 @@
   /* The accent word: teal at dusk and night, paler as the sky brightens, so it
      keeps 3:1 against a noon horizon. */
   .text-accent-adaptive {
-    color: color-mix(in oklab, var(--color-accent-text), white calc(80% * var(--sky-light)));
+    color: color-mix(in oklab, var(--color-accent-text), white calc(30% * var(--sky-light)));
   }
   .glow-dot { box-shadow: 0 0 8px var(--color-accent); }
 }

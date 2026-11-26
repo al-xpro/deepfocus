@@ -1,8 +1,8 @@
 "use client";
 
-import { useSyncExternalStore, type ReactElement, type ReactNode } from "react";
-import { Dialog, Popover } from "radix-ui";
-import { motion, useDragControls } from "framer-motion";
+import { cloneElement, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
+import { Popover } from "radix-ui";
+import Drawer from "./Drawer";
 
 const PHONE_QUERY = "(max-width: 639px)";
 
@@ -22,7 +22,7 @@ function useIsPhone() {
 
 interface GlassPanelProps {
   /** The button that opens the panel. */
-  trigger: ReactElement;
+  trigger: ReactElement<Record<string, unknown>>;
   title: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -33,10 +33,9 @@ interface GlassPanelProps {
 }
 
 /**
- * A glass panel: a popover anchored to its trigger on desktop, a bottom sheet
- * on phones. Radix handles the dialog semantics, Escape, focus moving in and
- * returning to the trigger, and `aria-expanded` on the trigger. Only one of
- * the two is ever in the DOM.
+ * A glass panel: a popover anchored to its trigger on desktop (Radix: dialog
+ * semantics, Escape, focus in and back to the trigger, `aria-expanded`), a
+ * bottom sheet on phones (Drawer). Only one of the two is ever in the DOM.
  */
 export default function GlassPanel({
   trigger,
@@ -48,7 +47,6 @@ export default function GlassPanel({
   children,
 }: GlassPanelProps) {
   const isPhone = useIsPhone();
-  const dragControls = useDragControls();
 
   const heading = (
     <h2 className="mb-5 text-[0.6875rem] font-normal uppercase tracking-[0.22em] text-on-glass-muted">
@@ -58,36 +56,16 @@ export default function GlassPanel({
 
   if (isPhone) {
     return (
-      <Dialog.Root open={open} onOpenChange={onOpenChange}>
-        <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
-        <Dialog.Portal>
-          <Dialog.Overlay className="sheet-overlay fixed inset-0 z-50 bg-black/10" />
-          <Dialog.Content asChild aria-describedby={undefined}>
-            <motion.div
-              drag="y"
-              dragListener={false}
-              dragControls={dragControls}
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0, bottom: 0.5 }}
-              dragSnapToOrigin
-              onDragEnd={(_, info) => {
-                if (info.offset.y > 80 || info.velocity.y > 400) onOpenChange(false);
-              }}
-              className="sheet glass glass-panel fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-panel px-5 pb-[max(2rem,env(safe-area-inset-bottom))] outline-none"
-            >
-              <div
-                className="flex cursor-grab touch-none justify-center pb-4 pt-3 active:cursor-grabbing"
-                onPointerDown={(event) => dragControls.start(event)}
-                aria-hidden="true"
-              >
-                <span className="h-1 w-10 rounded-full bg-current opacity-30" />
-              </div>
-              <Dialog.Title asChild>{heading}</Dialog.Title>
-              {children}
-            </motion.div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <>
+        {cloneElement(trigger, {
+          onClick: () => onOpenChange(!open),
+          "aria-expanded": open,
+          "aria-haspopup": "dialog",
+        })}
+        <Drawer open={open} onOpenChange={onOpenChange} title={title}>
+          {children}
+        </Drawer>
+      </>
     );
   }
 

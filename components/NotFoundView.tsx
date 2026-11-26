@@ -2,29 +2,27 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Logo } from "./Logo";
+import { useTimePreference } from "./timePreference";
 
 const OceanCanvas = dynamic(() => import("./OceanCanvas"), {
   ssr: false,
   loading: () => null,
 });
 
-/** The 404 page: the open sea at night, no models, one way back. */
+/**
+ * The 404 page: the open sea at the visitor's own time (live, or the hour they
+ * chose on the home page), without models, and one way back.
+ */
 export default function NotFoundView() {
+  const timeOverride = useTimePreference();
+
   return (
-    <>
-      <OceanCanvas timeOverrideHour={23} showModels={false} />
-      <div className="ocean-veil pointer-events-none fixed inset-0 z-10" />
+    <div className="relative min-h-[max(100dvh,34rem)]">
+      <OceanCanvas timeOverrideHour={timeOverride} showModels={false} />
+      <div className="ocean-veil pointer-events-none absolute inset-0 z-10" />
 
-      <div className="pointer-events-none relative z-20 flex min-h-dvh flex-col">
-        <nav className="mx-auto flex w-full min-w-[320px] max-w-5xl px-5 py-4 animate-fade-in sm:px-10 sm:py-8">
-          <Link href="/" aria-label="DeepFocus, home" className="pointer-events-auto flex items-center gap-2.5 rounded-sm text-ocean">
-            <Logo className="h-8 w-8 text-accent" />
-            <span className="sr-only text-[1.0625rem] font-normal tracking-[-0.01em] sm:not-sr-only">DeepFocus</span>
-          </Link>
-        </nav>
-
-        <main className="flex flex-1 select-none flex-col items-center justify-center px-6 pb-24 text-center">
+      <div className="pointer-events-none relative z-20 flex min-h-[max(100dvh,34rem)] flex-col">
+        <main className="flex flex-1 select-none flex-col items-center justify-center px-6 py-16 text-center">
           <p className="mb-6 text-[0.6875rem] font-normal uppercase tracking-[0.24em] text-ocean-strong animate-fade-up [animation-delay:200ms]">
             404
           </p>
@@ -42,6 +40,6 @@ export default function NotFoundView() {
           </Link>
         </main>
       </div>
-    </>
+    </div>
   );
 }
