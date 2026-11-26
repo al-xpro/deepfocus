@@ -28,6 +28,12 @@ All notable changes to this project, newest first. Versions follow
 
 ### Changed
 
+- Lighter models (#30): from 9.5 MB and 2.26M triangles to 1.6 MB and about 107K,
+  simplified and compressed with meshopt by `scripts/optimize-models.mjs`; the scanned
+  promontory and reef carry their color in their vertices. No Draco decoder any more.
+- The volcano is a dormant Hawaiian-style island on the horizon, basalt and green, with a
+  soft cloud cap. Material values sit inside their real ranges (the sea stacks no longer
+  read as ice), and the dolphins avoid the models' real footprints.
 - Next.js 16.2.1 → 16.4.5 (security fixes).
 - A new interface (v1.1, #12–#18): Apple-style glass in sync with the scene (white by
   day, black at dawn, dusk and night, tinted by the scene's light), DM Sans throughout,
@@ -46,6 +52,8 @@ All notable changes to this project, newest first. Versions follow
 
 ### Removed
 
+- `turtle.glb` (unused, non-commercial), the Draco decoder, and the unused
+  `scripts/generate-scene-models.mjs`.
 - The hidden YouTube player and its music (third-party requests on page load).
 - The white loading overlay.
 - `README_DETAILED.md`, replaced by `README.md`.

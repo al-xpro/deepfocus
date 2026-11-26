@@ -48,8 +48,8 @@ whose sky, light and water follow the visitor's clock.
 - [Next.js 16](https://nextjs.org) (App Router, statically prerendered) and React 19
 - TypeScript and Tailwind CSS 4
 - [React Three Fiber](https://r3f.docs.pmnd.rs), [drei](https://drei.docs.pmnd.rs) and
-  [three.js](https://threejs.org): the `Sky` and `Water` objects, glTF models with Draco
-  geometry and WebP textures
+  [three.js](https://threejs.org): the `Sky` and `Water` objects, glTF models simplified
+  and compressed with meshopt (`scripts/optimize-models.mjs`)
 - Radix primitives for the panels, Framer Motion for the interface
 - DM Sans, self-hosted through `next/font`
 

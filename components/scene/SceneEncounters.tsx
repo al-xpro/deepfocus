@@ -21,6 +21,8 @@ interface MaterialTuning {
   metalness?: number;
   colorBoost?: number;
   emissiveBoost?: number;
+  /** Multiplies the base color: shifts a model's palette (the volcano's pink to basalt). */
+  tint?: string;
 }
 
 interface ObstacleArea {
@@ -239,7 +241,7 @@ function createEncounterSet(): EncounterSet {
 }
 
 function useAnimatedClonedModel(url: string, tuning: MaterialTuning) {
-  const { scene, animations } = useGLTF(url);
+  const { scene, animations } = useGLTF(url, false);
   const model = useMemo(() => {
     const clone = cloneSkeleton(scene) as THREE.Group;
     enhanceModelMaterials(clone, tuning);
@@ -280,6 +282,9 @@ function enhanceModelMaterials(model: THREE.Object3D, tuning: MaterialTuning) {
         material.metalness = tuning.metalness;
       if ("color" in material && tuning.colorBoost !== undefined) {
         (material as THREE.MeshStandardMaterial).color.multiplyScalar(tuning.colorBoost);
+      }
+      if ("color" in material && tuning.tint !== undefined) {
+        (material as THREE.MeshStandardMaterial).color.multiply(new THREE.Color(tuning.tint));
       }
       if ("emissive" in material && tuning.emissiveBoost !== undefined) {
         (material as THREE.MeshStandardMaterial).emissive.multiplyScalar(tuning.emissiveBoost);
@@ -326,61 +331,78 @@ const CREATURE_TUNING: MaterialTuning = {
   colorBoost: 3.1,
   emissiveBoost: 1.01,
 };
+// Within real ranges: roughness 0–1, gentle color lifts. The scanned rocks carry
+// their color in the vertices (scripts/optimize-models.mjs).
 const PROMONTORY_TUNING: MaterialTuning = {
-  envMapIntensity: 3,
-  roughness: 0,
+  envMapIntensity: 1.1,
+  roughness: 0.92,
   metalness: 0,
-  colorBoost: 1.2,
-  emissiveBoost: 1.02,
+  colorBoost: 1.15,
 };
 
 const ROCK_REEF_TUNING: MaterialTuning = {
-  envMapIntensity: 2.16,
-  roughness: 1.92,
-  metalness: 0.03,
-  colorBoost: 1,
-  emissiveBoost: 2.04,
+  envMapIntensity: 1.1,
+  roughness: 0.95,
+  metalness: 0,
+  colorBoost: 1.1,
 };
 
 const CLIFF_TUNING: MaterialTuning = {
-  envMapIntensity: 3,
-  roughness: 0.62,
-  metalness: 0.03,
-  colorBoost: 2,
-  emissiveBoost: 1.04,
-};
-
-const CLIFF_GROUP_TUNING_1: MaterialTuning = {
-  envMapIntensity: 3,
-  roughness: 0.34,
-  metalness: 0,
-  colorBoost: 5,
-  emissiveBoost: 1.04,
-};
-
-const CLIFF_GROUP_TUNING_2: MaterialTuning = {
-  envMapIntensity: 3,
+  envMapIntensity: 1.1,
   roughness: 0.9,
   metalness: 0,
-  colorBoost: 4,
-  emissiveBoost: 1.04,
+  colorBoost: 1.25,
+};
+
+const SEA_STACK_TUNING: MaterialTuning = {
+  envMapIntensity: 1.1,
+  roughness: 0.88,
+  metalness: 0,
+  colorBoost: 1.3,
 };
 
 const VOLCANO_TUNING: MaterialTuning = {
-  envMapIntensity: 1.35,
-  roughness: 0.9,
-  metalness: 0.03,
-  colorBoost: 2,
-  emissiveBoost: 1.05,
+  envMapIntensity: 1,
+  roughness: 0.95,
+  metalness: 0,
+  colorBoost: 1.1,
+  tint: "#8fa384",
 };
 
-const CREATURE_OBSTACLES: ObstacleArea[] = [
-  { position: frontArcPosition(2000, 80, -14), radius: 290 },
-  { position: frontArcPosition(200, 200, -2), radius: 210 },
-  { position: frontArcPosition(170, 210, 0), radius: 190 },
-  { position: frontArcPosition(230, 180, 0), radius: 210 },
-  { position: frontArcPosition(900, 180, -3), radius: 280 },
-];
+/**
+ * Where the landscape sits around the camera. `frontArcPosition`: 0° is straight
+ * ahead of the starting view, 90° to the right. `halfExtent` is half the model's
+ * widest horizontal size at scale 1 (measured), so the dolphins' obstacles come
+ * from the real footprint.
+ */
+interface Placement {
+  url: string;
+  tuning: MaterialTuning;
+  radius: number;
+  angle: number;
+  y: number;
+  scale: number;
+  rotationY: number;
+  halfExtent: number;
+}
+
+const PLACEMENTS = {
+  promontory: { url: "/models/promontory.glb", tuning: PROMONTORY_TUNING, radius: 2000, angle: 20, y: -14, scale: 2, rotationY: -0.2, halfExtent: 190 },
+  reef: { url: "/models/rock_reef.glb", tuning: ROCK_REEF_TUNING, radius: 900, angle: 150, y: -3, scale: 1, rotationY: 1, halfExtent: 175 },
+  cliffRock: { url: "/models/cliff_rock.glb", tuning: CLIFF_TUNING, radius: 200, angle: 200, y: -2, scale: 1, rotationY: 0, halfExtent: 12 },
+  seaStacks: { url: "/models/group_of_cliff_1.glb", tuning: SEA_STACK_TUNING, radius: 170, angle: 210, y: 0, scale: 0.01, rotationY: 0, halfExtent: 1200 },
+  seaStacksSmall: { url: "/models/group_of_cliff_2.glb", tuning: SEA_STACK_TUNING, radius: 230, angle: 180, y: 0, scale: 0.01, rotationY: 1, halfExtent: 1370 },
+  // A Hawaiian shield volcano: wide and low, far out on the horizon.
+  volcano: { url: "/models/volcano.glb", tuning: VOLCANO_TUNING, radius: 3200, angle: 275, y: -2, scale: 14, rotationY: 0.6, halfExtent: 50 },
+} satisfies Record<string, Placement>;
+
+/** Room the dolphins keep around a model's footprint. */
+const OBSTACLE_MARGIN = 40;
+
+const CREATURE_OBSTACLES: ObstacleArea[] = Object.values(PLACEMENTS).map((placement) => ({
+  position: frontArcPosition(placement.radius, placement.angle, placement.y),
+  radius: placement.halfExtent * placement.scale + OBSTACLE_MARGIN,
+}));
 
 const DOLPHIN_MOTION: DolphinMotionConfig = {
   radiusRange: [120, 2_000],
@@ -682,62 +704,121 @@ function EncounterLightRig() {
   );
 }
 
-function PromontoryEncounter() {
-  const { model } = useAnimatedClonedModel("/models/promontory.glb", PROMONTORY_TUNING);
-  const position = useMemo(() => frontArcPosition(2000, 20, -14), []);
-  return (
-    <group position={position} scale={2} rotation={[0, -0.2, 0]}>
-      <primitive object={model} />
-    </group>
+function Landmark({ placement, children }: { placement: Placement; children?: ReactNode }) {
+  const { model } = useAnimatedClonedModel(placement.url, placement.tuning);
+  const position = useMemo(
+    () => frontArcPosition(placement.radius, placement.angle, placement.y),
+    [placement]
   );
-}
-
-function CliffEncounter() {
-  const { model } = useAnimatedClonedModel("/models/cliff_rock.glb", CLIFF_TUNING);
-  const position = useMemo(() => frontArcPosition(200, 200, -2), []);
   return (
     <group position={position}>
-      <primitive object={model} />
+      <group scale={placement.scale} rotation={[0, placement.rotationY, 0]}>
+        <primitive object={model} />
+      </group>
+      {children}
     </group>
   );
 }
 
-function CliffGroup1Encounter() {
-  const { model } = useAnimatedClonedModel("/models/group_of_cliff_1.glb", CLIFF_GROUP_TUNING_1);
-  const position = useMemo(() => frontArcPosition(170, 210, 0), []);
-  return (
-    <group position={position} scale={0.01}>
-      <primitive object={model} />
-    </group>
-  );
+/** A soft, round cloud texture, drawn once. */
+function createCloudTexture() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, "rgba(255,255,255,0.9)");
+    gradient.addColorStop(0.45, "rgba(255,255,255,0.45)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+    // A shaded base, like a real cloud: white on top, grey-blue underneath.
+    ctx.globalCompositeOperation = "source-atop";
+    const shade = ctx.createLinearGradient(0, 0, 0, size);
+    shade.addColorStop(0.35, "#ffffff");
+    shade.addColorStop(1, "#9aa6b4");
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, size, size);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
-function CliffGroup2Encounter() {
-  const { model } = useAnimatedClonedModel("/models/group_of_cliff_2.glb", CLIFF_GROUP_TUNING_2);
-  const position = useMemo(() => frontArcPosition(230, 180, 0), []);
-  return (
-    <group position={position} scale={0.01} rotation={[0, 1, 0]}>
-      <primitive object={model} />
-    </group>
-  );
-}
+const WHITE = new THREE.Color(0xffffff);
 
-function VolcanoEncounter() {
-  const { model } = useAnimatedClonedModel("/models/volcano.glb", VOLCANO_TUNING);
-  const position = useMemo(() => frontArcPosition(3000, 275, -2), []);
-  return (
-    <group position={position} scale={4}>
-      <primitive object={model} />
-    </group>
-  );
-}
+const CLOUD_PUFFS = [
+  { x: 0, y: 0, z: 0, w: 620, h: 170, phase: 0 },
+  { x: -230, y: -25, z: 60, w: 420, h: 120, phase: 1.7 },
+  { x: 250, y: -15, z: -40, w: 460, h: 130, phase: 3.1 },
+  { x: 60, y: 45, z: 20, w: 360, h: 110, phase: 4.4 },
+];
 
-function RockReefEncounter() {
-  const { model } = useAnimatedClonedModel("/models/rock_reef.glb", ROCK_REEF_TUNING);
-  const position = useMemo(() => frontArcPosition(900, 150, -3), []);
+/**
+ * A dormant volcano's cloud cap: a few soft puffs resting on the summit,
+ * drifting slowly, lit by the scene's light (dim at night). The weather can
+ * thicken it in v1.3.
+ */
+function CloudCap({ height }: { height: number }) {
+  const texture = useMemo(() => createCloudTexture(), []);
+  const materials = useMemo(
+    () =>
+      CLOUD_PUFFS.map(
+        () =>
+          new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, opacity: 0.6, fog: true })
+      ),
+    [texture]
+  );
+  const sprites = useRef<Array<THREE.Sprite | null>>([]);
+  const lastTone = useRef(-1);
+  const color = useRef(new THREE.Color());
+
+  useEffect(
+    () => () => {
+      texture.dispose();
+      materials.forEach((material) => material.dispose());
+    },
+    [texture, materials]
+  );
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    CLOUD_PUFFS.forEach((puff, i) => {
+      const sprite = sprites.current[i];
+      if (sprite) sprite.position.x = puff.x + Math.sin(t * 0.03 + puff.phase) * 40;
+    });
+    // The light changes slowly: recolor twice a second, not every frame.
+    if (t - lastTone.current < 0.5) return;
+    lastTone.current = t;
+    // Normalized against the exposure, so the cloud reads as soft white by day,
+    // and dimmed with the sun: a bright cloud over a volcano in a dark sky reads
+    // as a glow.
+    const scene = getSceneSnapshot(getSceneDate());
+    const daylight = THREE.MathUtils.smoothstep(scene.sunElev, -2, 15);
+    const brightness = (1.6 / Math.max(scene.exposure, 0.05)) * Math.max(daylight, 0.06);
+    color.current.setHex(scene.lightColorHex).lerp(WHITE, 0.5).multiplyScalar(brightness);
+    for (const sprite of sprites.current) {
+      if (!sprite) continue;
+      sprite.material.color.copy(color.current);
+      sprite.material.opacity = 0.6 - 0.3 * scene.nightFactor;
+    }
+  });
+
   return (
-    <group position={position} rotation={[0, 1, 0]}>
-      <primitive object={model} />
+    <group position={[0, height, 0]}>
+      {CLOUD_PUFFS.map((puff, i) => (
+        <sprite
+          key={i}
+          ref={(sprite) => {
+            sprites.current[i] = sprite;
+          }}
+          material={materials[i]}
+          position={[puff.x, puff.y, puff.z]}
+          scale={[puff.w, puff.h, 1]}
+        />
+      ))}
     </group>
   );
 }
@@ -1312,12 +1393,17 @@ export default function SceneEncounters() {
     <>
       <EncounterLightRig />
 
-      <Arrival><PromontoryEncounter /></Arrival>
-      <Arrival><CliffEncounter /></Arrival>
-      <Arrival><CliffGroup1Encounter /></Arrival>
-      <Arrival><CliffGroup2Encounter /></Arrival>
-      <Arrival><VolcanoEncounter /></Arrival>
-      <Arrival><RockReefEncounter /></Arrival>
+      <Arrival><Landmark placement={PLACEMENTS.promontory} /></Arrival>
+      <Arrival><Landmark placement={PLACEMENTS.reef} /></Arrival>
+      <Arrival><Landmark placement={PLACEMENTS.cliffRock} /></Arrival>
+      <Arrival><Landmark placement={PLACEMENTS.seaStacks} /></Arrival>
+      <Arrival><Landmark placement={PLACEMENTS.seaStacksSmall} /></Arrival>
+      <Arrival>
+        {/* The summit sits about 23.5 units up the model, at scale 14. */}
+        <Landmark placement={PLACEMENTS.volcano}>
+          <CloudCap height={23.5 * PLACEMENTS.volcano.scale + 30} />
+        </Landmark>
+      </Arrival>
 
       <Arrival>
         <DolphinEncounter
@@ -1350,14 +1436,12 @@ export default function SceneEncounters() {
   );
 }
 
-// The Draco decoder is self-hosted (copied from three/examples/jsm/libs/draco/gltf),
-// so loading the models never calls a third-party CDN.
-useGLTF.setDecoderPath("/draco/");
-
-useGLTF.preload("/models/promontory.glb");
-useGLTF.preload("/models/cliff_rock.glb");
-useGLTF.preload("/models/group_of_cliff_1.glb");
-useGLTF.preload("/models/group_of_cliff_2.glb");
-useGLTF.preload("/models/volcano.glb");
-useGLTF.preload("/models/rock_reef.glb");
-useGLTF.preload("/models/dolphin.glb");
+// Models are meshopt-compressed (scripts/optimize-models.mjs); the decoder ships with
+// three, so loading them never calls a third-party CDN. No Draco.
+useGLTF.preload("/models/promontory.glb", false);
+useGLTF.preload("/models/cliff_rock.glb", false);
+useGLTF.preload("/models/group_of_cliff_1.glb", false);
+useGLTF.preload("/models/group_of_cliff_2.glb", false);
+useGLTF.preload("/models/volcano.glb", false);
+useGLTF.preload("/models/rock_reef.glb", false);
+useGLTF.preload("/models/dolphin.glb", false);

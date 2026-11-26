@@ -44,9 +44,10 @@ public/models/          glTF models (third-party, see CREDITS.md)
   changed.
 - **Nature only:** the scene shows the sea, the sky, the land and its flora and fauna.
   No buildings, boats, lighthouses or other man-made objects.
-- **Models:** process every model with glTF-Transform (simplify, compress, WebP or KTX2
-  textures) before adding it, and state its triangle count and size in the pull request.
-  Distant objects need a few percent of a source model's triangles.
+- **Models:** give every model a budget in `scripts/optimize-models.mjs` and run it
+  (simplify, meshopt, WebP) before adding the model; state its triangle count and size in
+  the pull request. Distant objects need a few percent of a source model's triangles.
+  The whole scene stays under about 2 MB of models and 150K triangles.
 - **The frame loop:** no allocations inside `useFrame` (reuse vectors, colors and
   arrays), and no React state updates per frame. Read the scene snapshot; don't recompute
   it per component.

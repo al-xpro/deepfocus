@@ -6,9 +6,13 @@ license.
 
 ## 3D models
 
-All from [Sketchfab](https://sketchfab.com). Changes to every model: geometry compressed
-with Draco and textures converted to WebP (glTF-Transform); scaled and placed in the
-scene; material color, roughness and environment intensity adjusted at runtime.
+All from [Sketchfab](https://sketchfab.com). Changes to every model, made by
+`scripts/optimize-models.mjs` (glTF-Transform and meshoptimizer): simplified to a triangle
+budget, geometry compressed with meshopt, textures resized and converted to WebP; then
+scaled and placed in the scene, with material color, roughness and environment intensity
+adjusted at runtime. Further changes: the promontory and the reef have their texture baked
+into vertex colors (no texture); the volcano's texture is greyscale (tinted to basalt and
+green in the scene) and the model is recentered.
 
 | File | Model | Author | License |
 | --- | --- | --- | --- |
@@ -20,9 +24,8 @@ scene; material color, roughness and environment intensity adjusted at runtime.
 | `public/models/volcano.glb` | ["Volcano"](https://sketchfab.com/3d-models/volcano-0aa90a20d5cb47de90ec5d1bcd5aff31) | [k3ddesign](https://sketchfab.com/K3DDesign) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/blue_whale.glb` | ["Blue whale"](https://sketchfab.com/3d-models/blue-whale-a7969d8046754fa1b90f989ef451df1c) | [dannzjs](https://sketchfab.com/dannzjs) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/dolphin.glb` | ["Model 61A - Bottlenose Dolphin"](https://sketchfab.com/3d-models/model-61a-bottlenose-dolphin-2ec20f15b08c4c2fb16e4df5d837b893) | [DigitalLife3D](https://sketchfab.com/DigitalLife3D) | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
-| `public/models/turtle.glb` | ["Model 72B - Juvenile Green Sea Turtle"](https://sketchfab.com/3d-models/model-72b-juvenile-green-sea-turtle-c90a930f8b2a4cc8bc516742a0df01d9) | [DigitalLife3D](https://sketchfab.com/DigitalLife3D) | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
 
-`blue_whale.glb` and `turtle.glb` are in the repository but not used by the scene yet.
+`blue_whale.glb` is in the repository but not used by the scene yet.
 
 ## Textures
 
