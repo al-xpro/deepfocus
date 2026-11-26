@@ -1095,41 +1095,30 @@ function SunGlow() {
   );
 }
 
-const RETURN_HOME_AFTER = 30; // seconds idle
+// The view turns slowly and endlessly: a full turn in about four minutes. A drag
+// pauses it; it picks up again, easing in, a few seconds after the drag ends.
+// Under reduced motion it never turns on its own.
+const TURNS_PER_MINUTE = 0.25;
+const RESUME_AFTER = 5; // seconds
 
-/**
- * Drag to look all the way round. After a while idle, the view eases back to
- * where it started, so the copy sits over the composed view again. Under
- * reduced motion it stays where the visitor left it.
- */
 function LookControls() {
   const controls = useRef<OrbitControlsImpl>(null);
-  const home = useRef<{ azimuth: number; polar: number } | null>(null);
-  const idleSince = useRef<number | null>(null);
+  const dragging = useRef(false);
+  const resumeAt = useRef(0);
+  const speed = useRef(0);
   const reduceMotion = useReducedMotion();
 
   useFrame((_, delta) => {
     const c = controls.current;
     if (!c) return;
-    home.current ??= { azimuth: c.getAzimuthalAngle(), polar: c.getPolarAngle() };
-    if (reduceMotion || idleSince.current === null) return;
-    if (performance.now() / 1000 - idleSince.current < RETURN_HOME_AFTER) return;
-
-    const azimuth = c.getAzimuthalAngle();
-    const polar = c.getPolarAngle();
-    const dAzimuth = Math.atan2(
-      Math.sin(home.current.azimuth - azimuth),
-      Math.cos(home.current.azimuth - azimuth)
-    );
-    const dPolar = home.current.polar - polar;
-    if (Math.abs(dAzimuth) < 0.0005 && Math.abs(dPolar) < 0.0005) {
-      idleSince.current = null;
-      return;
-    }
-    const k = 1 - Math.exp(-Math.min(delta, 0.1) * 0.7);
-    c.setAzimuthalAngle(azimuth + dAzimuth * k);
-    c.setPolarAngle(polar + dPolar * k);
-    c.update();
+    const dt = Math.min(delta, 0.1);
+    const now = performance.now() / 1000;
+    const target = reduceMotion || dragging.current || now < resumeAt.current ? 0 : TURNS_PER_MINUTE;
+    speed.current += (target - speed.current) * (1 - Math.exp(-dt * 0.8));
+    c.autoRotate = speed.current > 0.0005;
+    // OrbitControls turns a fixed angle per update: scale it by the frame time,
+    // so the speed is the same at 60 and 120 frames a second.
+    c.autoRotateSpeed = speed.current * dt * 60;
   });
 
   return (
@@ -1144,16 +1133,18 @@ function LookControls() {
       maxPolarAngle={Math.PI * 0.525}
       target={[0, 8, 0]}
       onStart={() => {
-        idleSince.current = null;
+        dragging.current = true;
+        speed.current = 0;
       }}
       onEnd={() => {
-        idleSince.current = performance.now() / 1000;
+        dragging.current = false;
+        resumeAt.current = performance.now() / 1000 + RESUME_AFTER;
       }}
     />
   );
 }
 
-export default function OceanScene() {
+export default function OceanScene({ showModels = true }: { showModels?: boolean }) {
   const { gl, scene: threeScene, camera } = useThree();
 
   const sky = useMemo(() => {
@@ -1249,7 +1240,7 @@ export default function OceanScene() {
       <Suspense fallback={null}>
         <Ocean />
       </Suspense>
-      <SceneEncounters />
+      {showModels ? <SceneEncounters /> : null}
       <LookControls />
     </>
   );

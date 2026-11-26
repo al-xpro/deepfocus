@@ -10,7 +10,7 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-const title = "DeepFocus — The future of deep work";
+const title = "DeepFocus — Deep work sets sail";
 const description = "A quiet workspace for deep work. A concept by AlxPro.";
 
 export const metadata: Metadata = {

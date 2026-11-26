@@ -16,9 +16,12 @@ All notable changes to this project, newest first. Versions follow
 - Panels built on Radix: a popover on desktop, a bottom sheet on phones; Escape closes
   them and focus returns to the trigger.
 - A time panel with Live and Custom, a 24-hour scrubber and four presets.
-- Focus mode (`F`) and focus sessions of 15, 25 or 50 minutes.
+- Focus mode (`F`) and focus sessions of 15, 30 or 60 minutes, shown as a progress bar
+  (the countdown fades after a moment and returns on hover).
 - A self-hosted CC0 ocean ambience, played through Web Audio, loaded on demand.
-- A credits panel; "Drag to look around", once; the view eases home after 30 s idle.
+- A credits panel with scroll shadows; "Drag to look around", once; the view turns
+  slowly and endlessly, pausing while dragged.
+- A 404 page ("Lost at sea") over the night sea, and `llms.txt` for agents.
 - Reduced motion: no entrance animations, a fade instead of the particles, no shooting
   stars, no leaps, no camera easing.
 

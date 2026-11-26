@@ -45,10 +45,13 @@ function SceneLoadReporter({
  */
 export default function OceanCanvas({
   timeOverrideHour = null,
+  showModels = true,
   onProgressChange,
   onReadyChange,
 }: {
   timeOverrideHour?: number | null;
+  /** False for a lighter scene: sky, sea and stars, no models (the 404 page). */
+  showModels?: boolean;
   onProgressChange?: (progress: number) => void;
   onReadyChange?: (ready: boolean) => void;
 }) {
@@ -92,7 +95,7 @@ export default function OceanCanvas({
     >
       <Preload all />
       <SceneLoadReporter onProgressChange={onProgressChange} onReadyChange={onReadyChange} />
-      <OceanScene />
+      <OceanScene showModels={showModels} />
     </Canvas>
   );
 }

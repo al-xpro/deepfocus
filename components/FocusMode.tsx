@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ringBell } from "./ambience";
+import Digits from "./Digits";
 
 // Focus sessions: a length, an end time, kept in localStorage so a session
 // survives a reload. Nothing leaves the browser.
 
 const KEY = "deepfocus:session";
-const LENGTHS = [15, 25, 50];
+const LENGTHS = [15, 30, 60];
 
 interface Session {
   endsAt: number;
@@ -74,16 +75,20 @@ function formatRemaining(ms: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+const COUNTDOWN_FADES_AFTER = 3500; // ms
+
 /**
  * The focus bar, bottom center in focus mode: pick a length and start a
- * session, watch it count down, or leave. A thin line along the top of the
- * screen shows the session's progress.
+ * session, then just a progress bar. The countdown shows for a moment when a
+ * session starts, then fades; hovering the bar brings it back. Screen readers
+ * get the time left from the progress bar's value.
  */
 export default function FocusBar({ onExit, onComplete }: { onExit: () => void; onComplete: () => void }) {
   const session = useSession();
-  const [length, setLength] = useState(25);
+  const [length, setLength] = useState(30);
   const [now, setNow] = useState(0);
   const [done, setDone] = useState(false);
+  const [countdownShown, setCountdownShown] = useState(true);
   const primaryRef = useRef<HTMLButtonElement>(null);
 
   // Keyboard focus moves into the bar when focus mode starts.
@@ -105,9 +110,11 @@ export default function FocusBar({ onExit, onComplete }: { onExit: () => void; o
     };
     const first = window.setTimeout(tick, 0);
     const id = window.setInterval(tick, 1000);
+    const fade = window.setTimeout(() => setCountdownShown(false), COUNTDOWN_FADES_AFTER);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(id);
+      window.clearTimeout(fade);
     };
   }, [session, onComplete]);
 
@@ -123,86 +130,99 @@ export default function FocusBar({ onExit, onComplete }: { onExit: () => void; o
 
   const start = (minutes: number) => {
     setDone(false);
+    setCountdownShown(true);
     setLength(minutes);
     writeSession({ endsAt: Date.now() + minutes * 60_000, minutes });
   };
 
-  const progress = session && now ? 1 - (session.endsAt - now) / (session.minutes * 60_000) : 0;
-
+  const remaining = session ? (now ? session.endsAt - now : session.minutes * 60_000) : 0;
+  const progress = session && now ? Math.min(1, Math.max(0, 1 - remaining / (session.minutes * 60_000))) : 0;
   const pill = "h-10 cursor-pointer rounded-full px-4 text-sm font-normal transition-colors duration-(--duration-fast)";
+  const fade = "transition-opacity duration-700 ease-(--ease-glass)";
 
   return (
-    <>
+    <div
+      className={`group glass flex items-center gap-1 rounded-full p-1 ${done ? "animate-[sessionPulse_1.8s_ease-out_3]" : ""}`}
+      role="group"
+      aria-label="Focus session"
+    >
       {session ? (
-        <div
-          className="pointer-events-none fixed inset-x-0 top-0 z-40 h-0.5 origin-left bg-accent/80 transition-transform duration-1000 ease-linear"
-          style={{ transform: `scaleX(${Math.min(1, Math.max(0, progress))})` }}
-          role="progressbar"
-          aria-label="Session progress"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(progress * 100)}
-        />
-      ) : null}
-
-      <div
-        className={`glass flex items-center gap-1 rounded-full p-1 ${done ? "animate-[sessionPulse_1.8s_ease-out_3]" : ""}`}
-        role="group"
-        aria-label="Focus session"
+        <>
+          {/* One fixed slot: the countdown and the progress bar cross-fade in it. */}
+          <div
+            className="relative flex h-10 w-32 items-center justify-center"
+            role="progressbar"
+            aria-label="Session progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress * 100)}
+            aria-valuetext={`${formatRemaining(remaining)} left`}
+          >
+            <span
+              className={`absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 overflow-hidden rounded-full bg-current/15 ${fade} ${
+                countdownShown ? "opacity-0" : "opacity-100 group-hover:opacity-0"
+              }`}
+            >
+              <span
+                className="block h-full origin-left rounded-full bg-accent transition-transform duration-1000 ease-linear"
+                style={{ transform: `scaleX(${progress})` }}
+              />
+            </span>
+            <span
+              className={`select-none text-sm font-light ${fade} ${
+                countdownShown ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              <Digits value={formatRemaining(remaining)} />
+            </span>
+          </div>
+          <button ref={primaryRef} type="button" onClick={stopSession} className={`${pill} glass-control`}>
+            Stop
+          </button>
+        </>
+      ) : done ? (
+        <>
+          <span className="select-none px-3 text-sm font-light" role="status">
+            Session done
+          </span>
+          <button ref={primaryRef} type="button" onClick={() => start(length)} className={`${pill} glass-selected`}>
+            Again
+          </button>
+        </>
+      ) : (
+        <>
+          <div role="group" aria-label="Session length" className="flex gap-0.5">
+            {LENGTHS.map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                aria-pressed={length === minutes}
+                onClick={() => setLength(minutes)}
+                className={`h-10 w-11 cursor-pointer rounded-full text-sm font-light transition-colors duration-(--duration-fast) ${
+                  length === minutes ? "bg-(--glass-well) font-normal" : "glass-control text-on-glass-muted"
+                }`}
+              >
+                {minutes}
+                <span className="sr-only"> minutes</span>
+              </button>
+            ))}
+          </div>
+          <button ref={primaryRef} type="button" onClick={() => start(length)} className={`${pill} glass-selected`}>
+            Start
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={onExit}
+        aria-label="Leave focus mode"
+        aria-keyshortcuts="Escape"
+        className="glass-control flex h-10 w-10 cursor-pointer items-center justify-center"
       >
-        {session ? (
-          <>
-            <span className="select-none px-3 text-sm font-light tabular-nums" aria-live="off">
-              {now ? formatRemaining(session.endsAt - now) : formatRemaining(session.minutes * 60_000)}
-            </span>
-            <button ref={primaryRef} type="button" onClick={stopSession} className={`${pill} glass-control`}>
-              Stop
-            </button>
-          </>
-        ) : done ? (
-          <>
-            <span className="select-none px-3 text-sm font-light" role="status">
-              Session done
-            </span>
-            <button ref={primaryRef} type="button" onClick={() => start(length)} className={`${pill} glass-selected`}>
-              Again
-            </button>
-          </>
-        ) : (
-          <>
-            <div role="group" aria-label="Session length" className="flex gap-0.5">
-              {LENGTHS.map((minutes) => (
-                <button
-                  key={minutes}
-                  type="button"
-                  aria-pressed={length === minutes}
-                  onClick={() => setLength(minutes)}
-                  className={`h-10 w-11 cursor-pointer rounded-full text-sm font-light tabular-nums transition-colors duration-(--duration-fast) ${
-                    length === minutes ? "bg-(--glass-well) font-normal" : "glass-control text-on-glass-muted"
-                  }`}
-                >
-                  {minutes}
-                  <span className="sr-only"> minutes</span>
-                </button>
-              ))}
-            </div>
-            <button ref={primaryRef} type="button" onClick={() => start(length)} className={`${pill} glass-selected`}>
-              Start
-            </button>
-          </>
-        )}
-        <button
-          type="button"
-          onClick={onExit}
-          aria-label="Leave focus mode"
-          aria-keyshortcuts="Escape"
-          className="glass-control flex h-10 w-10 cursor-pointer items-center justify-center"
-        >
-          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden="true">
-            <path d="M4 4l8 8M12 4l-8 8" />
-          </svg>
-        </button>
-      </div>
-    </>
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden="true">
+          <path d="M4 4l8 8M12 4l-8 8" />
+        </svg>
+      </button>
+    </div>
   );
 }

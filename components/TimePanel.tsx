@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMinutes } from "./sceneClock";
+import Digits from "./Digits";
 
 const PRESETS = [
   { label: "Sunrise", minutes: 5 * 60 },
@@ -60,8 +61,8 @@ export default function TimePanel({
         </button>
       </div>
 
-      <p className="select-none text-center text-5xl font-extralight tabular-nums tracking-tight" aria-hidden="true">
-        {formatMinutes(minutes)}
+      <p className="select-none text-center text-5xl font-extralight" aria-hidden="true">
+        <Digits value={formatMinutes(minutes)} />
       </p>
 
       <div className="flex flex-col gap-2">

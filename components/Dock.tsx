@@ -3,6 +3,7 @@
 import { useState, type Ref } from "react";
 import GlassPanel from "./GlassPanel";
 import TimePanel from "./TimePanel";
+import Digits from "./Digits";
 import { formatMinutes, sceneMinutes, useMinuteClock } from "./sceneClock";
 import { startAmbience, stopAmbience, useAmbience } from "./ambience";
 
@@ -65,12 +66,16 @@ export default function Dock({
           <button
             type="button"
             aria-label={`Scene time, ${label}${timeOverride === null ? ", live" : ""}. Change the time`}
-            className="glass-control flex h-10 cursor-pointer items-center gap-1.5 px-3.5 text-sm font-normal tabular-nums"
+            className="glass-control flex h-10 cursor-pointer items-center gap-1.5 pl-3 pr-3.5 text-sm font-normal"
           >
-            {timeOverride !== null ? (
-              <span className="h-1 w-1 rounded-full bg-current opacity-60" aria-hidden="true" />
-            ) : null}
-            <span className={minutes === null ? "opacity-0" : undefined}>{label}</span>
+            {/* The custom-time dot keeps its space when hidden, so the time never moves. */}
+            <span
+              className={`h-1 w-1 rounded-full bg-current transition-opacity duration-(--duration-base) ${
+                timeOverride !== null ? "opacity-60" : "opacity-0"
+              }`}
+              aria-hidden="true"
+            />
+            <Digits value={label} className={minutes === null ? "opacity-0" : undefined} />
           </button>
         }
       >

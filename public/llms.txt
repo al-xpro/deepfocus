@@ -1,0 +1,24 @@
+# DeepFocus
+
+> A concept landing page for DeepFocus, a fictional focus app, set over a real-time 3D ocean whose sky, light and interface follow the time of day. Designed and developed by AlxPro. The product, the waitlist and the copy are invented: nothing is sold, and no email address is sent or stored.
+
+DeepFocus is a portfolio concept that shows how 3D storytelling can carry a landing page. It's built with Next.js, React Three Fiber and three.js, and makes no third-party requests: fonts, sound and decoders are self-hosted.
+
+## About
+
+- [AlxPro](https://alxpro.com): the studio that designed and built DeepFocus
+- [Source code](https://github.com/al-xpro/deepfocus): the public repository (all rights reserved)
+- [Credits](https://github.com/al-xpro/deepfocus/blob/main/CREDITS.md): the third-party 3D models, sound, code and fonts, with their licenses
+
+## On the page
+
+- A real-time ocean: sky, water, stars, moon, coastal rocks and dolphins, in sync with the visitor's clock
+- A time panel to see the scene at any hour
+- Glass controls that follow the scene's light: white by day, black at night
+- Focus mode, with 15, 30 or 60-minute sessions
+- An ocean ambience (a CC0 recording) that plays only when asked
+- A waitlist that is a concept: nothing is sent
+
+## Optional
+
+- [Changelog](https://github.com/al-xpro/deepfocus/blob/main/CHANGELOG.md)

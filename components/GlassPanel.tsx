@@ -61,7 +61,7 @@ export default function GlassPanel({
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Overlay className="sheet-overlay fixed inset-0 z-50 bg-black/30" />
+          <Dialog.Overlay className="sheet-overlay fixed inset-0 z-50 bg-black/10" />
           <Dialog.Content asChild aria-describedby={undefined}>
             <motion.div
               drag="y"

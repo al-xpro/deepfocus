@@ -33,8 +33,10 @@ whose sky, light and water follow the visitor's clock.
   constellation lines, shooting stars, a moon and a sun glow
 - Three dolphins with a behavior system: they steer around rocks and each other, rise to
   the surface, leap, and sometimes jump together in a pod
-- Focus mode (`F`): the page steps aside for the scene, with 15, 25 or 50-minute focus
-  sessions that survive a reload and end with a soft bell
+- Focus mode (`F`): the page steps aside for the scene, with 15, 30 or 60-minute focus
+  sessions shown as a progress bar; they survive a reload and end with a soft bell
+- The view turns slowly and endlessly; drag to look around
+- A 404 page on the open sea at night, and an `llms.txt` for agents
 - An ocean ambience (a CC0 field recording, self-hosted) that loads only when the
   visitor turns it on
 - A waitlist that says it's a concept: the address dissolves into particles and nothing
