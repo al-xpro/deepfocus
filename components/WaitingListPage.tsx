@@ -110,6 +110,8 @@ export default function WaitlistPage() {
           </div>
         </main>
 
+        <LookHint hidden={inFocus} />
+
         <footer className="pointer-events-auto mx-auto flex flex-wrap w-full min-w-[320px] max-w-5xl select-none items-center justify-between gap-x-5 px-5 py-5 text-[0.8125rem] font-light text-muted text-ocean animate-fade-in sm:px-10 sm:py-8">
           <span>© 2026 DeepFocus</span>
           <div className="flex items-center gap-5">
@@ -130,7 +132,6 @@ export default function WaitlistPage() {
         </div>
       ) : null}
 
-      <LookHint hidden={inFocus} />
     </div>
   );
 }

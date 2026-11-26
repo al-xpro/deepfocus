@@ -41,6 +41,8 @@ All notable changes to this project, newest first. Versions follow
 
 ### Fixed
 
+- "Drag to look around" sits in the page's flow above the footer, so it can't overlap the
+  copy at any height.
 - Lint errors: typed the YouTube player instead of `any`, and the time panel no longer
   sets state inside effects.
 

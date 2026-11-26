@@ -6,7 +6,9 @@ const KEY = "deepfocus:looked";
 
 /**
  * "Drag to look around", once: it appears a few seconds in, and goes for good
- * after the first drag on the scene.
+ * after the first drag on the scene. It sits in the page's flow, above the
+ * footer, with its space always reserved: it can't overlap the copy at any
+ * height, and the layout doesn't move when it goes.
  */
 export default function LookHint({ hidden }: { hidden: boolean }) {
   const [visible, setVisible] = useState(false);
@@ -39,7 +41,7 @@ export default function LookHint({ hidden }: { hidden: boolean }) {
   return (
     <p
       aria-hidden="true"
-      className={`pointer-events-none fixed inset-x-0 bottom-20 z-20 flex select-none items-center justify-center gap-2 text-xs font-light tracking-[0.04em] text-muted text-ocean transition-opacity duration-700 sm:bottom-24 [@media(max-height:640px)]:hidden ${
+      className={`pointer-events-none flex h-6 shrink-0 select-none items-center justify-center gap-2 text-xs font-light tracking-[0.04em] text-muted text-ocean transition-opacity duration-700 ${
         visible && !hidden ? "opacity-100" : "opacity-0"
       }`}
     >
