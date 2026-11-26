@@ -19,14 +19,16 @@ import sharp from "sharp";
 const DIR = path.resolve("public/models");
 
 const BUDGETS = {
-  // Scanned rocks: every triangle has its own texture seam, which locks the
-  // simplifier. They sit 900 to 2,000 units away, so their texture is baked into
-  // vertex colors first: no seams, a clean simplification, no texture to download.
-  "promontory.glb": { triangles: 20_000, texture: 0, bake: true },
+  // The main landmark keeps its texture: simplified across texture seams
+  // ("permissive"), weighing how far UVs and normals move, so it still reads as
+  // a wooded island, with no holes. No emissive glow (it lit up at night).
+  "promontory.glb": { triangles: 70_000, texture: 1024, permissive: true, noEmissive: true },
+  // The reef is low and far: its texture is baked into vertex colors (no seams,
+  // a clean simplification, no texture to download).
   "rock_reef.glb": { triangles: 20_000, texture: 0, bake: true },
-  // Dormant: its lava streaks go grey (the scene tints it to basalt and green), and
+  // Active: its lava streaks become an emissive texture that glows at night; and
   // it's recentered, since its summit sat far from its origin.
-  "volcano.glb": { triangles: 10_000, texture: 512, greyscale: true, recenter: true },
+  "volcano.glb": { triangles: 10_000, texture: 512, lava: true, recenter: true },
   "cliff_rock.glb": { triangles: 6_000, texture: 512 },
   "group_of_cliff_1.glb": { triangles: 2_500, texture: 512 },
   "group_of_cliff_2.glb": { triangles: 4_000, texture: 512 },
@@ -211,6 +213,63 @@ function smoothNormals(document) {
   }
 }
 
+/**
+ * Simplifies a textured mesh across its texture seams, weighing how far the UVs
+ * and normals move, so the result keeps its look without holes.
+ */
+function simplifyTextured(document, targetTriangles) {
+  const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
+  const total = countTriangles(document);
+  for (const primitive of primitives) {
+    const indices = primitive.getIndices();
+    const positions = primitive.getAttribute("POSITION")?.getArray();
+    const uv = primitive.getAttribute("TEXCOORD_0")?.getArray();
+    const normal = primitive.getAttribute("NORMAL")?.getArray();
+    if (!indices || !(positions instanceof Float32Array) || !uv || !normal) continue;
+    const count = positions.length / 3;
+    const attributes = new Float32Array(count * 5);
+    for (let i = 0; i < count; i++) {
+      attributes[i * 5] = uv[i * 2];
+      attributes[i * 5 + 1] = uv[i * 2 + 1];
+      attributes[i * 5 + 2] = normal[i * 3];
+      attributes[i * 5 + 3] = normal[i * 3 + 1];
+      attributes[i * 5 + 4] = normal[i * 3 + 2];
+    }
+    const source = new Uint32Array(indices.getArray());
+    const target = Math.max(3, Math.floor(((targetTriangles * source.length) / 3 / total) * 3));
+    let result = source;
+    for (const error of [0.005, 0.01, 0.02, 0.04]) {
+      [result] = MeshoptSimplifier.simplifyWithAttributes(
+        source, positions, 3, attributes, 5, [1, 1, 0.3, 0.3, 0.3], null, target, error, ["Permissive"]
+      );
+      if (result.length <= target * 1.1) break;
+    }
+    indices.setArray(result);
+    compactPrimitive(primitive);
+  }
+}
+
+/** The lava: an emissive texture from the base color's red streaks. */
+async function addLavaGlow(document) {
+  for (const material of document.getRoot().listMaterials()) {
+    const base = material.getBaseColorTexture();
+    const image = base?.getImage();
+    if (!image) continue;
+    const { data, info } = await sharp(Buffer.from(image)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const glow = Buffer.alloc(info.width * info.height * 3);
+    for (let i = 0; i < info.width * info.height; i++) {
+      const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
+      const lava = r > 120 && r > g * 1.45 && r > b * 1.45;
+      glow[i * 3] = lava ? 255 : 0;
+      glow[i * 3 + 1] = lava ? Math.round(110 * (r / 255)) : 0;
+      glow[i * 3 + 2] = lava ? 24 : 0;
+    }
+    const png = await sharp(glow, { raw: { width: info.width, height: info.height, channels: 3 } }).webp({ quality: 85 }).toBuffer();
+    const texture = document.createTexture("lava").setImage(png).setMimeType("image/webp");
+    material.setEmissiveTexture(texture).setEmissiveFactor([1, 1, 1]);
+  }
+}
+
 const io = new NodeIO()
   .registerExtensions(ALL_EXTENSIONS)
   .registerDependencies({
@@ -243,22 +302,25 @@ for (const [file, budget] of Object.entries(BUDGETS)) {
     await document.transform(center({ pivot: [(min[0] + max[0]) / 2, 0, (min[2] + max[2]) / 2] }));
   }
 
-  // Safe to repeat: the greyscale of a greyscale image is the same image.
-  if (budget.greyscale) {
-    for (const texture of document.getRoot().listTextures()) {
-      const image = texture.getImage();
-      if (!image) continue;
-      texture.setImage(await sharp(Buffer.from(image)).greyscale().webp({ quality: 90 }).toBuffer());
-      texture.setMimeType("image/webp");
-    }
-  }
 
-  if (budget.bake) {
+  if (budget.bake || budget.permissive) {
     // One mesh instead of the scan's chunks, so the chunk borders weld too.
     await document.transform(flatten(), join({ keepNamed: false }));
+  }
+  if (budget.bake) {
     await bakeToVertexColors(document);
     simplifyBaked(document, budget.triangles);
   }
+  if (budget.permissive && countTriangles(document) > budget.triangles * 1.1) {
+    await document.transform(weld());
+    simplifyTextured(document, budget.triangles);
+  }
+  if (budget.noEmissive) {
+    for (const material of document.getRoot().listMaterials()) {
+      material.setEmissiveTexture(null).setEmissiveFactor([0, 0, 0]);
+    }
+  }
+  if (budget.lava) await addLavaGlow(document);
 
   // Simplify toward the budget, allowing a little more error each pass if needed.
   for (const error of [0.01, 0.03, 0.08]) {

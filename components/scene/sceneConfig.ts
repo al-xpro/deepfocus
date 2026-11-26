@@ -50,16 +50,6 @@ export const sceneConfig = {
     nightAlpha: 0.88,
     timeScale: 0.12,
   },
-  bloom: {
-    dayStrength: 5,
-    twilightStrength: 0.34,
-    nightStrength: 0.08,
-    dayRadius: 0.18,
-    twilightRadius: 0.24,
-    nightRadius: 0.12,
-    threshold: 0.72,
-    smoothing: 0.12,
-  },
   clouds: {
     scale: 0.00018,
     daySpeed: 0.00002,

@@ -58,6 +58,13 @@ export const CREDITS: Array<{ group: string; items: Credit[] }> = [
         licenseUrl: CC_BY,
       },
       {
+        title: "Blue whale",
+        author: "dannzjs",
+        source: "https://sketchfab.com/3d-models/blue-whale-a7969d8046754fa1b90f989ef451df1c",
+        license: "CC BY 4.0",
+        licenseUrl: CC_BY,
+      },
+      {
         title: "Model 61A, Bottlenose Dolphin",
         author: "DigitalLife3D",
         source: "https://sketchfab.com/3d-models/model-61a-bottlenose-dolphin-2ec20f15b08c4c2fb16e4df5d837b893",

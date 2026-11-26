@@ -31,8 +31,12 @@ whose sky, light and water follow the visitor's clock.
   tinted by the scene's light
 - A night sky drawn from canvas textures, with no image downloads: about 3,700 stars,
   constellation lines, shooting stars, a moon and a sun glow
-- Three dolphins with a behavior system: they steer around rocks and each other, rise to
-  the surface, leap, and sometimes jump together in a pod
+- A living sea: dolphins that cruise, breathe at the surface and leap on real ballistic
+  arcs (porpoising, the occasional breach), with spray, ripples and wakes; gulls that
+  circle and dive on a fish school; a rare whale that blows and breaches; palms on a small
+  island; and a distant active volcano with a smoke plume and lava that glows at night
+- At night the water glows blue-green wherever it's stirred; a tap on the sea sends a
+  ripple, and a dolphin may come to look
 - Focus mode (`F`): the page steps aside for the scene, with 15, 30 or 60-minute focus
   sessions shown as a progress bar; they survive a reload and end with a soft bell
 - The view turns slowly and endlessly; drag to look around
@@ -66,6 +70,11 @@ components/scene/       the 3D scene
   timeUtils.ts          sun position and the per-frame scene snapshot
   sceneParams.ts        the time override
   sceneTone.ts          publishes the scene's light to the page (the glass follows it)
+  sceneFrame.ts         the scene's state, computed once per frame and read everywhere
+  landscape.tsx         where each model sits, the volcano and its plume, the palms
+  dolphins/             the dolphins: a pure, tested behavior module and its renderer
+  life/                 gulls, the fish school, the whale
+  fx/                   water contact: spray, ripples, the night glow
 public/models/          glTF models (see CREDITS.md)
 ```
 
@@ -75,10 +84,12 @@ noon, twilight and night. Every value in `sceneConfig.ts` has a day, a twilight 
 night version, and the snapshot blends them, so the sky, lights, water, stars and
 exposure always agree.
 
-**The dolphins steer.** Each one picks targets through curved via-points, avoids the
-rocks and the other dolphins, and moves through four phases: cruise, surface approach,
-airborne, and dive. A dolphin about to leap can invite the others; those nearby join and
-jump in sync.
+**The dolphins think on their own.** Their behavior is a pure module
+(`components/scene/dolphins/brain.ts`) with tests: they cruise under the surface, steer
+around the rocks' real footprints and each other, keep formation by steering, and surface
+to breathe. A leap is a burst of speed, then a ballistic arc (y = v₀t − ½gt²) to a planned
+height, then a dive; pod-mates nearby join a beat apart. They leap often by day, rarely at
+night, and never under reduced motion.
 
 ## Getting started
 
@@ -89,6 +100,7 @@ npm install
 npm run dev         # http://localhost:3000
 npm run typecheck
 npm run lint
+npm test            # the dolphins' behavior (Vitest)
 npm run build
 ```
 

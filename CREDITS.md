@@ -10,9 +10,10 @@ All from [Sketchfab](https://sketchfab.com). Changes to every model, made by
 `scripts/optimize-models.mjs` (glTF-Transform and meshoptimizer): simplified to a triangle
 budget, geometry compressed with meshopt, textures resized and converted to WebP; then
 scaled and placed in the scene, with material color, roughness and environment intensity
-adjusted at runtime. Further changes: the promontory and the reef have their texture baked
-into vertex colors (no texture); the volcano's texture is greyscale (tinted to basalt and
-green in the scene) and the model is recentered.
+adjusted at runtime. Further changes: the reef has its texture baked into vertex colors (no
+texture); the promontory's emissive color is removed; the volcano is recentered and gets an
+emissive "lava" texture made from the red streaks of its own texture; the whale is sized
+from its skinned bounds and plays its swim without the clip's translation tracks.
 
 | File | Model | Author | License |
 | --- | --- | --- | --- |
@@ -25,7 +26,8 @@ green in the scene) and the model is recentered.
 | `public/models/blue_whale.glb` | ["Blue whale"](https://sketchfab.com/3d-models/blue-whale-a7969d8046754fa1b90f989ef451df1c) | [dannzjs](https://sketchfab.com/dannzjs) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/dolphin.glb` | ["Model 61A - Bottlenose Dolphin"](https://sketchfab.com/3d-models/model-61a-bottlenose-dolphin-2ec20f15b08c4c2fb16e4df5d837b893) | [DigitalLife3D](https://sketchfab.com/DigitalLife3D) | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
 
-`blue_whale.glb` is in the repository but not used by the scene yet.
+The palms, the gulls, the fish, the water effects (spray, ripples, the night glow) and the
+volcano's plume are built in code for this project.
 
 ## Textures
 
