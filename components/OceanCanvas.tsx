@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Preload, useProgress } from "@react-three/drei";
+import { useReducedMotion } from "framer-motion";
 import * as THREE from "three";
 import OceanScene from "./scene/OceanScene";
 import { setSceneTimeOverride } from "./scene/sceneParams";
+import { motionPrefs } from "./scene/motionPrefs";
 
 function SceneLoadReporter({
   onProgressChange,
@@ -23,31 +25,24 @@ function SceneLoadReporter({
 
   useEffect(() => {
     if (readyLatched) return;
-
-    const hasLoadedAssets = total > 0 && loaded >= total;
-    const hasReachedFullProgress = progress >= 99.9;
-    const isReady = hasLoadedAssets && hasReachedFullProgress && !active;
-
-    if (!isReady) {
-      onReadyChange?.(false);
-      return;
-    }
+    const isReady = total > 0 && loaded >= total && progress >= 99.9 && !active;
+    if (!isReady) return;
 
     const timeout = window.setTimeout(() => {
       setReadyLatched(true);
       onReadyChange?.(true);
     }, 650);
-
     return () => clearTimeout(timeout);
   }, [active, loaded, onReadyChange, progress, readyLatched, total]);
-
-  useEffect(() => {
-    return () => onReadyChange?.(false);
-  }, [onReadyChange]);
 
   return null;
 }
 
+/**
+ * The 3D scene, full screen behind the page. The sky and the sea draw at once;
+ * the models fade in as they arrive, and `onProgressChange` reports the
+ * download so the page can show a progress line.
+ */
 export default function OceanCanvas({
   timeOverrideHour = null,
   onProgressChange,
@@ -57,20 +52,20 @@ export default function OceanCanvas({
   onProgressChange?: (progress: number) => void;
   onReadyChange?: (ready: boolean) => void;
 }) {
-  const [sceneReady, setSceneReady] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     setSceneTimeOverride(timeOverrideHour);
   }, [timeOverrideHour]);
 
-  const handleReadyChange = useCallback((ready: boolean) => {
-    setSceneReady(ready);
-    onReadyChange?.(ready);
-  }, [onReadyChange]);
+  useEffect(() => {
+    motionPrefs.reduced = Boolean(reduceMotion);
+  }, [reduceMotion]);
 
   return (
     <Canvas
       dpr={[1, 1.5]}
+      className="animate-fade-in"
       style={{
         position: "fixed",
         top: 0,
@@ -78,8 +73,6 @@ export default function OceanCanvas({
         width: "100%",
         height: "100%",
         pointerEvents: "auto",
-        opacity: sceneReady ? 1 : 0,
-        transition: "opacity 850ms ease",
         zIndex: 0,
       }}
       camera={{
@@ -98,7 +91,7 @@ export default function OceanCanvas({
       }}
     >
       <Preload all />
-      <SceneLoadReporter onProgressChange={onProgressChange} onReadyChange={handleReadyChange} />
+      <SceneLoadReporter onProgressChange={onProgressChange} onReadyChange={onReadyChange} />
       <OceanScene />
     </Canvas>
   );

@@ -12,13 +12,25 @@ All notable changes to this project, newest first. Versions follow
 - Issue and pull request templates, Dependabot (security fixes grouped into one pull
   request), Dependabot auto-merge for minor and patch updates, and CI (typecheck, lint,
   build).
+- A control dock: the scene time, the ocean sound and focus mode.
+- Panels built on Radix: a popover on desktop, a bottom sheet on phones; Escape closes
+  them and focus returns to the trigger.
+- A time panel with Live and Custom, a 24-hour scrubber and four presets.
+- Focus mode (`F`) and focus sessions of 15, 25 or 50 minutes.
+- A self-hosted CC0 ocean ambience, played through Web Audio, loaded on demand.
+- A credits panel; "Drag to look around", once; the view eases home after 30 s idle.
+- Reduced motion: no entrance animations, a fade instead of the particles, no shooting
+  stars, no leaps, no camera easing.
 
 ### Changed
 
 - Next.js 16.2.1 → 16.4.5 (security fixes).
-- A new look (#12): Apple-style glass over the scene that darkens as the sky brightens,
-  Instrument Serif for the headline and Geist for the interface, one keyboard focus ring,
-  text contrast AA at every time of day, and the DeepFocus name everywhere.
+- A new interface (v1.1, #12–#18): Apple-style glass in sync with the scene (white by
+  day, black at dawn, dusk and night, tinted by the scene's light), DM Sans throughout,
+  ultra-minimal copy, one keyboard focus ring, text contrast AA at every time of day, and
+  the DeepFocus name and a new mark everywhere.
+- The loader is gone: the sky and the sea draw at once and each model fades in as it
+  arrives, with a thin progress line.
 
 ### Fixed
 
@@ -27,6 +39,8 @@ All notable changes to this project, newest first. Versions follow
 
 ### Removed
 
+- The hidden YouTube player and its music (third-party requests on page load).
+- The white loading overlay.
 - `README_DETAILED.md`, replaced by `README.md`.
 
 ## v1.0 · 2026-11-25

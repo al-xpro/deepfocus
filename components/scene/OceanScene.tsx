@@ -3,12 +3,15 @@
 import { Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { useReducedMotion } from "framer-motion";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Sky as SkyImpl } from "three/examples/jsm/objects/Sky.js";
 import * as THREE from "three";
 import Ocean from "./Ocean";
 import SceneEncounters from "./SceneEncounters";
 import { getSceneDate, sceneParams } from "./sceneParams";
 import { getSceneSnapshot, type SceneSnapshot, vecFromSpherical } from "./timeUtils";
+import { publishSceneTone } from "./sceneTone";
 
 const SKY_OBJECT_LAYER = 1;
 
@@ -920,6 +923,8 @@ function Comet({
 
 function CometField() {
   const cometSeeds = useMemo(() => createCometSeeds(8), []);
+  // Shooting stars are motion for its own sake: none under reduced motion.
+  if (useReducedMotion()) return null;
 
   return (
     <>
@@ -1090,6 +1095,64 @@ function SunGlow() {
   );
 }
 
+const RETURN_HOME_AFTER = 30; // seconds idle
+
+/**
+ * Drag to look all the way round. After a while idle, the view eases back to
+ * where it started, so the copy sits over the composed view again. Under
+ * reduced motion it stays where the visitor left it.
+ */
+function LookControls() {
+  const controls = useRef<OrbitControlsImpl>(null);
+  const home = useRef<{ azimuth: number; polar: number } | null>(null);
+  const idleSince = useRef<number | null>(null);
+  const reduceMotion = useReducedMotion();
+
+  useFrame((_, delta) => {
+    const c = controls.current;
+    if (!c) return;
+    home.current ??= { azimuth: c.getAzimuthalAngle(), polar: c.getPolarAngle() };
+    if (reduceMotion || idleSince.current === null) return;
+    if (performance.now() / 1000 - idleSince.current < RETURN_HOME_AFTER) return;
+
+    const azimuth = c.getAzimuthalAngle();
+    const polar = c.getPolarAngle();
+    const dAzimuth = Math.atan2(
+      Math.sin(home.current.azimuth - azimuth),
+      Math.cos(home.current.azimuth - azimuth)
+    );
+    const dPolar = home.current.polar - polar;
+    if (Math.abs(dAzimuth) < 0.0005 && Math.abs(dPolar) < 0.0005) {
+      idleSince.current = null;
+      return;
+    }
+    const k = 1 - Math.exp(-Math.min(delta, 0.1) * 0.7);
+    c.setAzimuthalAngle(azimuth + dAzimuth * k);
+    c.setPolarAngle(polar + dPolar * k);
+    c.update();
+  });
+
+  return (
+    <OrbitControls
+      ref={controls}
+      enablePan={false}
+      enableZoom={false}
+      enableDamping
+      dampingFactor={0.06}
+      rotateSpeed={0.45}
+      minPolarAngle={Math.PI * 0.16}
+      maxPolarAngle={Math.PI * 0.525}
+      target={[0, 8, 0]}
+      onStart={() => {
+        idleSince.current = null;
+      }}
+      onEnd={() => {
+        idleSince.current = performance.now() / 1000;
+      }}
+    />
+  );
+}
+
 export default function OceanScene() {
   const { gl, scene: threeScene, camera } = useThree();
 
@@ -1169,6 +1232,7 @@ export default function OceanScene() {
     }
 
     state.gl.toneMappingExposure = scene.exposure;
+    publishSceneTone(scene);
   });
 
   return (
@@ -1181,20 +1245,12 @@ export default function OceanScene() {
         <CometField />
       </CelestialLayer>
       <Moon />
+      {/* The sea has its own boundary, so it doesn't wait for the models. */}
       <Suspense fallback={null}>
         <Ocean />
-        <SceneEncounters />
       </Suspense>
-      <OrbitControls
-        enablePan={false}
-        enableZoom={false}
-        enableDamping
-        dampingFactor={0.06}
-        rotateSpeed={0.45}
-        minPolarAngle={Math.PI * 0.16}
-        maxPolarAngle={Math.PI * 0.525}
-        target={[0, 8, 0]}
-      />
+      <SceneEncounters />
+      <LookControls />
     </>
   );
 }

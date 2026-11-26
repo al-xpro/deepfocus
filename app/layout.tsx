@@ -1,28 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const instrumentSerif = Instrument_Serif({
+// One calm, soft family for everything: titles at normal or medium, body light.
+const dmSans = DM_Sans({
   subsets: ["latin"],
-  weight: "400",
   style: ["normal", "italic"],
-  variable: "--font-instrument-serif",
-  display: "swap",
-});
-const geistSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-  display: "swap",
-});
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-geist-mono",
+  variable: "--font-dm-sans",
   display: "swap",
 });
 
 const title = "DeepFocus — The future of deep work";
-const description =
-  "A focused workspace for makers, writers, and builders who crave clarity. A concept by AlxPro.";
+const description = "A quiet workspace for deep work. A concept by AlxPro.";
 
 export const metadata: Metadata = {
   title,
@@ -38,15 +27,13 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  themeColor: "#03070f",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${instrumentSerif.variable} ${geistSans.variable} ${geistMono.variable}`}
-    >
-      <body className="font-sans antialiased">{children}</body>
+    <html lang="en" className={dmSans.variable} data-glass="dark">
+      <body className="font-sans font-light antialiased">{children}</body>
     </html>
   );
 }

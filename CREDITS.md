@@ -30,6 +30,14 @@ scene; material color, roughness and environment intensity adjusted at runtime.
   [three.js examples](https://github.com/mrdoob/three.js/tree/dev/examples/textures),
   © three.js authors, [MIT License](https://github.com/mrdoob/three.js/blob/dev/LICENSE).
 
+## Sound
+
+- `public/audio/ocean.m4a`: ["Small Waves Back to the Ocean"](https://bigsoundbank.com/small-waves-back-to-the-ocean-s1047.html)
+  by Joseph Sardin, [BigSoundBank](https://bigsoundbank.com),
+  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Changes: cut to an 80-second
+  seamless loop (the last 6 seconds crossfaded into the start), raised by 7 dB, encoded
+  as AAC. The bell at the end of a focus session is synthesized in the browser.
+
 ## Code
 
 - The sky and the water are three.js's `Sky` and `Water` objects from
@@ -38,21 +46,18 @@ scene; material color, roughness and environment intensity adjusted at runtime.
 - The sun-position formulas in `components/scene/timeUtils.ts` follow
   [SunCalc](https://github.com/mourner/suncalc) by Vladimir Agafonkin,
   [BSD 2-Clause License](https://github.com/mourner/suncalc/blob/master/LICENSE).
+- `public/draco/`: Google's [Draco](https://github.com/google/draco) decoder, copied
+  unchanged from three.js and self-hosted,
+  [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) (copy in
+  `public/draco/LICENSE.txt`).
 
 ## Fonts
 
-- [Libre Baskerville](https://fonts.google.com/specimen/Libre+Baskerville) and
-  [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond), under the
+- [DM Sans](https://fonts.google.com/specimen/DM+Sans) by Colophon Foundry, under the
   [SIL Open Font License 1.1](https://openfontlicense.org), self-hosted at build time by
   `next/font`.
 
-## Music
-
-- "Ocean Waves" by [Peder B. Helland](https://www.youtube.com/@PederBHellandMusic), played
-  through YouTube's embedded player. It isn't stored in this repository. It will be
-  replaced by a self-hosted, licensed ambient track.
-
 ## Original work
 
-Everything else (the code, the copy, the DeepFocus mark and the screenshots in
-`.github/assets/`) was made for this project by AlxPro.
+Everything else (the code, the copy, the DeepFocus mark and icons, and the screenshots
+in `.github/assets/`) was made for this project by AlxPro.

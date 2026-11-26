@@ -26,14 +26,20 @@ whose sky, light and water follow the visitor's clock.
 - A real-time 3D ocean: three.js water with reflections, a physically based sky, and an
   environment map that follows it
 - Time of day from the visitor's clock: day, twilight and night blend the sky, light,
-  water and exposure, and a time panel sets any hour
+  water and exposure, and a time panel with a 24-hour scrubber sets any hour
+- Glass controls in sync with the scene: white by day, black at dawn, dusk and night,
+  tinted by the scene's light
 - A night sky drawn from canvas textures, with no image downloads: about 3,700 stars,
   constellation lines, shooting stars, a moon and a sun glow
 - Three dolphins with a behavior system: they steer around rocks and each other, rise to
   the surface, leap, and sometimes jump together in a pod
-- A waitlist form whose text dissolves into particles on submit (a concept: nothing is
-  sent)
-- A sound toggle; the headline steps aside while it plays, leaving only the sea
+- Focus mode (`F`): the page steps aside for the scene, with 15, 25 or 50-minute focus
+  sessions that survive a reload and end with a soft bell
+- An ocean ambience (a CC0 field recording, self-hosted) that loads only when the
+  visitor turns it on
+- A waitlist that says it's a concept: the address dissolves into particles and nothing
+  is sent
+- No third-party requests: fonts, sound and the Draco decoder are self-hosted
 
 ## Tech stack
 
@@ -42,13 +48,14 @@ whose sky, light and water follow the visitor's clock.
 - [React Three Fiber](https://r3f.docs.pmnd.rs), [drei](https://drei.docs.pmnd.rs) and
   [three.js](https://threejs.org): the `Sky` and `Water` objects, glTF models with Draco
   geometry and WebP textures
-- Framer Motion for the interface
+- Radix primitives for the panels, Framer Motion for the interface
+- DM Sans, self-hosted through `next/font`
 
 ## Architecture
 
 ```text
 app/                    layout, metadata, the one page
-components/             the page, time panel, sound toggle, loader
+components/             the page, dock, glass panels, focus mode, sound, credits
 components/scene/       the 3D scene
   OceanScene.tsx        sky, environment map, stars, constellations, comets, moon, sun
   Ocean.tsx             the water
@@ -56,6 +63,7 @@ components/scene/       the 3D scene
   sceneConfig.ts        day, twilight and night values for every scene parameter
   timeUtils.ts          sun position and the per-frame scene snapshot
   sceneParams.ts        the time override
+  sceneTone.ts          publishes the scene's light to the page (the glass follows it)
 public/models/          glTF models (see CREDITS.md)
 ```
 
