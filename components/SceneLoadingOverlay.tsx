@@ -20,15 +20,15 @@ export default function SceneLoadingOverlay({
             filter: "blur(20px)",
             transition: { duration: 0.8, ease: "easeInOut" },
           }}
-          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-white"
+          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-ink"
         >
           <motion.div
-            className="absolute inset-0 bg-gradient-to-b from-white via-white to-[#0BC6B4]/10"
+            className="absolute inset-0 bg-ink"
             animate={{
               background: [
-                "radial-gradient(circle at 50% 120%, rgba(11, 198, 180, 0.1) 0%, #fff 70%)",
-                "radial-gradient(circle at 50% 110%, rgba(11, 198, 180, 0.2) 0%, #fff 70%)",
-                "radial-gradient(circle at 50% 120%, rgba(11, 198, 180, 0.1) 0%, #fff 70%)",
+                "radial-gradient(circle at 50% 120%, rgba(11, 198, 180, 0.1) 0%, #03070f 70%)",
+                "radial-gradient(circle at 50% 110%, rgba(11, 198, 180, 0.2) 0%, #03070f 70%)",
+                "radial-gradient(circle at 50% 120%, rgba(11, 198, 180, 0.1) 0%, #03070f 70%)",
               ],
             }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -39,16 +39,16 @@ export default function SceneLoadingOverlay({
               <motion.p
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="font-display text-[0.8rem] font-semibold uppercase tracking-[0.7em] text-[#0BC6B4]"
+                className="text-[0.6875rem] font-medium uppercase tracking-[0.4em] text-faint"
               >
-                Loading Ocean
+                Loading the ocean
               </motion.p>
             </div>
 
             <div className="relative flex h-24 w-64 flex-col items-center justify-center">
-              <div className="relative h-[3px] w-full overflow-visible rounded-full bg-[#0BC6B4]/10">
+              <div className="relative h-[3px] w-full overflow-visible rounded-full bg-white/10">
                 <motion.div
-                  className="absolute inset-y-0 left-0 rounded-full bg-[#0BC6B4] shadow-[0_0_8px_rgba(11,198,180,0.4)]"
+                  className="absolute inset-y-0 left-0 rounded-full bg-accent glow-dot"
                   initial={{ width: "0%" }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.5, ease: "easeOut" }}
@@ -60,13 +60,13 @@ export default function SceneLoadingOverlay({
                       boxShadow: ["0 0 10px #0BC6B4", "0 0 20px #0BC6B4", "0 0 10px #0BC6B4"],
                     }}
                     transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute right-0 top-1/2 z-20 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0BC6B4]"
+                    className="absolute right-0 top-1/2 z-20 h-3 w-3 -translate-y-1/2 rounded-full bg-accent"
                   />
                 </motion.div>
               </div>
             </div>
 
-            <motion.div className="font-mono tracking-[0.2em] text-[#0BC6B4]">
+            <motion.div className="font-mono tracking-[0.2em] text-faint">
               {Math.round(progress)}%
             </motion.div>
           </div>

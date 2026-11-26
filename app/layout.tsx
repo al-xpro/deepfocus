@@ -1,28 +1,35 @@
 import type { Metadata, Viewport } from "next";
-import { Libre_Baskerville, Cormorant_Garamond } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
-const libreBaskerville = Libre_Baskerville({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: "400",
   style: ["normal", "italic"],
-  variable: "--font-baskerville",
+  variable: "--font-instrument-serif",
   display: "swap",
 });
-const cormorantGaramond = Cormorant_Garamond({
+const geistSans = Geist({
   subsets: ["latin"],
-  weight: ["300", "400", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-cormorant",
+  variable: "--font-geist-sans",
+  display: "swap",
+});
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
   display: "swap",
 });
 
+const title = "DeepFocus — The future of deep work";
+const description =
+  "A focused workspace for makers, writers, and builders who crave clarity. A concept by AlxPro.";
+
 export const metadata: Metadata = {
-  title: "DeepWave — The Future of Deep Focus",
-  description: "A focused workspace for makers, writers, and builders. Launching soon.",
+  title,
+  description,
   openGraph: {
-    title: "DeepWave — The Future of Deep Focus",
-    description: "Reserve your early-access spot before the tide turns.",
+    title,
+    description,
     type: "website",
   },
 };
@@ -35,8 +42,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${libreBaskerville.variable} ${cormorantGaramond.variable}`}>
-      <body className="font-body antialiased">{children}</body>
+    <html
+      lang="en"
+      className={`${instrumentSerif.variable} ${geistSans.variable} ${geistMono.variable}`}
+    >
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

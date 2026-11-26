@@ -16,6 +16,9 @@ All notable changes to this project, newest first. Versions follow
 ### Changed
 
 - Next.js 16.2.1 → 16.4.5 (security fixes).
+- A new look (#12): Apple-style glass over the scene that darkens as the sky brightens,
+  Instrument Serif for the headline and Geist for the interface, one keyboard focus ring,
+  text contrast AA at every time of day, and the DeepFocus name everywhere.
 
 ### Fixed
 

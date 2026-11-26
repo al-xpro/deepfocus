@@ -8,6 +8,7 @@ import SceneTimePanel from "./SceneTimePanel";
 import { Logo } from "@/public/Logo";
 import { AnimatePresence, motion } from "framer-motion";
 import SceneLoadingOverlay from "./SceneLoadingOverlay";
+import { getSceneSnapshot } from "./scene/timeUtils";
 
 const OceanCanvas = dynamic(() => import("@/components/OceanCavas"), {
   ssr: false,
@@ -33,6 +34,13 @@ function getDisplayDate(timeOverrideHour: number | null, baseDate: Date) {
   const minutes = Math.round((timeOverrideHour - wholeHours) * 60);
   nextDate.setHours(wholeHours, minutes, 0, 0);
   return nextDate;
+}
+
+// How bright the sky is, from 0 at night to 1 by day, from the scene's sun.
+// Rounded so the page only updates it when it actually changes.
+function getSkyLight(date: Date) {
+  const t = Math.min(1, Math.max(0, (getSceneSnapshot(date).sunElev + 6) / 10));
+  return (t * t * (3 - 2 * t)).toFixed(2);
 }
 
 function formatTimeLabel(date: Date) {
@@ -198,11 +206,11 @@ function WaitlistForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className={`relative w-full h-12 rounded-xl overflow-hidden bg-transparent flex items-center focus-within:ring-3 focus-within:ring-[#0BC6B4] border border-[#0d8c6a] focus-within:border-[#0d8c6a] focus-within:outline-none ${className}`}
+      className={`glass flex h-14 w-full items-center gap-2 overflow-hidden rounded-full pl-5 pr-1.5 ${className}`}
     >
       <canvas
         ref={canvasRef}
-        className={`absolute pointer-events-none scale-50 top-[17%] left-2 origin-top-left ${animating ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute left-3 top-[24%] origin-top-left scale-50 ${animating ? "opacity-100" : "opacity-0"}`}
       />
 
       <input
@@ -215,17 +223,17 @@ function WaitlistForm({
         required
         pattern={EMAIL_REGEX.source}
         onChange={(e) => !animating && setValue(e.target.value)}
-        className={`w-full h-full bg-transparent pl-4 pr-38 sm:pr-44 text-sm sm:text-base text-white outline-none truncate ${animating && "text-transparent!"}`}
+        className={`h-full min-w-0 flex-1 truncate bg-transparent text-base text-text outline-none ${animating ? "text-transparent!" : ""}`}
       />
 
-      <div className="absolute left-4 inset-y-0 flex items-center pointer-events-none">
-        {!value && <p className="text-sm sm:text-base text-white/50 truncate">{placeholder}</p>}
+      <div className="pointer-events-none absolute inset-y-0 left-5 flex items-center">
+        {!value && <p className="truncate text-base text-faint">{placeholder}</p>}
       </div>
       <button
         type="submit"
-        className={`absolute right-0 uppercase text-black tracking-widest bg-[#0BC6B4] hover:bg-[#0BC6B4]/30 rounded-tr-xl border-l border-[#0d8c6a] rounded-br-xl top-1/2 -translate-y-1/2 z-20 cursor-pointer flex items-center gap-2 px-3 sm:px-6 py-3.5 text-sm font-medium transition focus-within:ring-3 focus-within:ring-transparent focus-within:border-[#0d8c6a] focus-within:outline-none ${submitted ? "cursor-text" : ""}`}
+        className={`glass-selected relative z-20 flex h-11 shrink-0 cursor-pointer items-center rounded-full px-5 text-sm font-medium transition-[background-color,transform] duration-(--duration-fast) ease-(--ease-glass) active:scale-[0.97] sm:px-6 ${submitted ? "cursor-text" : ""}`}
       >
-        {submitted ? "Thank you!" : <p>Reserve a spot</p>}
+        {submitted ? "Thank you!" : "Reserve a spot"}
       </button>
     </form>
   );
@@ -262,7 +270,13 @@ export default function WaitlistPage() {
     setIsMusicPlaying((playing) => !playing);
   }, []);
 
-  const displayedSceneTime = formatTimeLabel(getDisplayDate(timeOverrideHour, clockNow));
+  const displayDate = getDisplayDate(timeOverrideHour, clockNow);
+  const displayedSceneTime = formatTimeLabel(displayDate);
+  const skyLight = getSkyLight(displayDate);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--sky-light", skyLight);
+  }, [skyLight]);
 
   return (
     <>
@@ -277,13 +291,13 @@ export default function WaitlistPage() {
       <div className="relative z-20 flex flex-col w-full min-h-screen pointer-events-none">
         {/* NAV */}
         <nav className="relative flex mx-auto justify-between items-center px-5 sm:px-10 py-4 sm:py-8 animate-fade-down w-full min-w-[320px] max-w-[1024px] pointer-events-auto">
-          <span className="font-display text-[0.92rem] font-bold tracking-[0.28em] uppercase text-[#0BC6B4] text-ocean">
-            <div className="flex items-center justify-center gap-1 sm:gap-2">
-              <Logo />
-              <p className="hidden sm:block text-lg">DeepWave</p>
-            </div>
-          </span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 text-ocean">
+            <Logo className="h-9 w-9 text-accent" />
+            <span className="sr-only text-[1.0625rem] font-semibold tracking-[-0.01em] sm:not-sr-only">
+              DeepFocus
+            </span>
+          </div>
+          <div className="glass flex items-center gap-0.5 rounded-full p-1">
             <SceneTimePanel
               value={timeOverrideHour}
               onChange={setTimeOverrideHour}
@@ -308,28 +322,28 @@ export default function WaitlistPage() {
                 transition={{ duration: 0.45, ease: "easeInOut" }}
                 className="flex flex-col items-center"
               >
-                <div className="inline-flex items-center gap-2.5 mb-3 sm:mb-6 animate-fade-up [animation-delay:350ms] pointer-events-auto">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0BC6B4] glow-dot animate-pulse-dot" />
-                  <span className="font-body text-[0.67rem] tracking-[0.32em] uppercase text-[#0BC6B4] text-ocean">
+                <div className="glass pointer-events-auto mb-5 inline-flex items-center gap-2.5 rounded-full px-3.5 py-1.5 animate-fade-up [animation-delay:350ms] sm:mb-7">
+                  <span className="glow-dot h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" />
+                  <span className="text-[0.6875rem] font-medium uppercase tracking-[0.22em]">
                     Early access open
                   </span>
                 </div>
-                <h1 className="font-display text-[clamp(2.5rem,6.5vw,4.2rem)] font-normal leading-[1.07] tracking-tight mb-2 sm:mb-5 max-w-2xl text-ocean animate-fade-up [animation-delay:500ms]">
+                <h1 className="mb-4 max-w-3xl font-display text-[clamp(3rem,8vw,5.5rem)] leading-none tracking-[-0.015em] text-ocean-strong animate-fade-up [animation-delay:500ms] sm:mb-6">
                   The future of <br />
-                  <em className="text-[#0BC6B4] italic">Deep Focus</em>
+                  <em className="text-accent-adaptive italic">deep work</em>
                   <br />
                   is setting sail.
                 </h1>
                 <label
                   htmlFor="email"
-                  className="font-body text-[1.12rem] font-light leading-relaxed text-white/55 max-w-sm mb-5 sm:mb-9 text-ocean animate-fade-up [animation-delay:650ms]"
+                  className="mb-6 max-w-md text-base leading-relaxed text-muted text-ocean animate-fade-up [animation-delay:650ms] sm:mb-9 sm:text-lg"
                 >
                   A focused workspace for makers, writers, and builders who crave clarity. Built on
                   calm. <span className="whitespace-nowrap">Launching soon.</span>
                 </label>
                 <div className="w-full max-w-md pointer-events-auto animate-rise-in [animation-delay:800ms]">
                   <WaitlistForm placeholder="your@email.com" className="w-full" id="email" />
-                  <p className="mt-2 sm:mt-4 text-[0.68rem] tracking-[0.1em] uppercase text-white/20 text-ocean">
+                  <p className="mt-3 text-[0.8125rem] text-muted text-ocean sm:mt-4">
                     No spam — just one note when we open{" "}
                     <span className="whitespace-nowrap">the hatch</span>.
                   </p>
@@ -342,15 +356,15 @@ export default function WaitlistPage() {
         {/* FOOTER */}
         <footer className="relative flex mx-auto flex-col sm:flex-row justify-between items-center px-5 sm:px-10 py-4 sm:py-8 animate-fade-down w-full min-w-[320px] max-w-[1024px] pointer-events-auto">
           <div className="flex flex-col sm:flex-row w-full items-center sm:justify-between gap-2">
-            <p className="text-left text-sm leading-normal text-white">
-              © {currentYear} DeepWave. All rights reserved.
+            <p className="text-sm text-muted text-ocean">
+              © {currentYear} DeepFocus. All rights reserved.
             </p>
-            <p className="text-left text-sm leading-normal text-white">
-              Designed and Developed by&nbsp;
+            <p className="text-sm text-muted text-ocean">
+              Designed and developed by&nbsp;
               <Link
                 href="https://alxpro.com"
                 target="_blank"
-                className="font-black text-[#0BC6B4] hover:underline focus-within:rounded focus-within:ring-3 focus-within:ring-[#0BC6B4] focus-within:border-[#0d8c6a] focus-within:outline-none"
+                className="rounded-sm font-medium text-text underline-offset-4 hover:underline"
               >
                 AlxPro
               </Link>

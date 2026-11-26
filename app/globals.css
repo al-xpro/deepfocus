@@ -1,72 +1,220 @@
 @import "tailwindcss";
 
-/* ── Remove the default Next.js white background variables entirely.
-      The canvas background is the 3-D scene; body must be ink-dark
-      so nothing bleeds through the semi-transparent water mesh. ── */
+/* The page sits on the 3D scene: html and body are ink, never white. */
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-
-::selection {
-    background-color: #0BC6B4;
-    color: #fff;
-}
+/* ── Tokens ──────────────────────────────────────────────────────────────── */
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
 @theme {
-  --color-ink:  #03070f;
-  --color-glow: #5ef0c8;
-  --color-gold: #e8c97a;
+  /* Color: ink behind everything, white text, one accent for marks only. */
+  --color-ink: #03070f;
+  --color-accent: #0bc6b4;
+  /* The accent as large text on the scene: same hue, lighter, 3:1 on a bright sky. */
+  --color-accent-text: #6eecdf;
+  --color-text: #ffffff;
+  --color-muted: rgb(255 255 255 / calc(0.84 + 0.16 * var(--sky-light)));
+  --color-faint: rgb(255 255 255 / 0.62);
 
-  --font-display: var(--font-baskerville);
-  --font-body:    var(--font-cormorant);
+  /* Shape: capsules for controls, concentric radii for panels. */
+  --radius-control: 0.875rem;
+  --radius-panel: 1.75rem;
 
-  --animate-fade-up:   fadeUp   0.9s ease                        both;
-  --animate-fade-down: fadeDown 1s   ease                        both;
-  --animate-rise-in:   riseIn   1.2s cubic-bezier(0.16,1,0.3,1) both;
-  --animate-pulse-dot: pulseDot 2.5s ease                        infinite;
+  /* Motion */
+  --ease-glass: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 160ms;
+  --duration-base: 320ms;
+
+  --animate-fade-up: fadeUp 0.9s var(--ease-glass) both;
+  --animate-fade-down: fadeDown 1s var(--ease-glass) both;
+  --animate-rise-in: riseIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-dot: pulseDot 2.5s ease infinite;
 }
 
-@keyframes fadeUp   { from { opacity:0; transform:translateY(16px)  } to { opacity:1; transform:translateY(0) } }
-@keyframes fadeDown { from { opacity:0; transform:translateY(-16px) } to { opacity:1; transform:translateY(0) } }
-@keyframes riseIn   { from { opacity:0; transform:translateY(24px)  } to { opacity:1; transform:translateY(0) } }
-@keyframes pulseDot { 0%,100% { opacity:1;   transform:scale(1)    } 50% { opacity:.4; transform:scale(.65) } }
-@keyframes musicBars {
-  0%, 100% { transform: scaleY(.55); opacity: .66; }
-  50% { transform: scaleY(1); opacity: 1; }
-}
+@keyframes fadeUp   { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes fadeDown { from { opacity: 0; transform: translateY(-16px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes riseIn   { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes pulseDot { 0%, 100% { opacity: 1; transform: scale(1) } 50% { opacity: .4; transform: scale(.65) } }
 
-@layer utilities {
-  .ocean-veil {
-    background:
-      radial-gradient(ellipse 65% 45% at 50% 58%, rgba(0,0,0,.52) 0%, transparent 70%),
-      linear-gradient(to bottom, rgba(3,7,15,.58) 0%, transparent 40%, rgba(3,7,15,.45) 100%);
-  }
-  .text-ocean {
-    text-shadow: 0 2px 32px rgba(0,0,0,.98), 0 1px 6px rgba(0,0,0,.85);
-  }
-  .glow-dot { box-shadow: 0 0 8px #0BC6B4; }
-  .input-focus-ring:focus-within {
-    border-color: rgba(65, 172, 143, 0.42);
-    box-shadow:   0 0 0 3px rgba(94,240,200,.07);
-  }
-}
-
-/* Body and html must be ink-dark — the canvas sits on top of this. */
-html,
-body {
-  min-height: 100vh;
-  background-color: #03070f;
-  color: #ffffff;
-  overflow-x: hidden;
-}
-
-/* ── Wave animation for the MusicToggle ── */
+/* The sound toggle's bars */
 @keyframes waveform {
   0%, 100% { transform: scaleY(0.4); }
   50% { transform: scaleY(1.2); }
+}
+
+/* How bright the sky is behind the page, from 0 at night to 1 by day. The page
+   sets it from the scene's sun (WaitingListPage). Glass and the headline's
+   backdrop darken with it, the way Apple's glass adapts to what's behind it. */
+@property --sky-light {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+:root {
+  transition: --sky-light 1.2s var(--ease-glass);
+}
+
+/* ── Glass ───────────────────────────────────────────────────────────────────
+   Apple-style glass laid over the scene: a translucent fill that lifts what's
+   behind it (blur and saturation), a bright rim that catches the light at the
+   top left, and a soft shadow underneath. Every surface keeps a slight dark
+   tint, so white text stays readable on a bright noon sky.
+
+   Surfaces draw their shadow from --surface-shadow and the focus ring from
+   --ring, so a focused surface keeps its depth. */
+
+@utility glass {
+  position: relative;
+  isolation: isolate;
+  background: var(
+    --glass-bg,
+    linear-gradient(180deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.03) 60%),
+    rgb(6 14 26 / calc(0.24 + 0.4 * var(--sky-light)))
+  );
+  -webkit-backdrop-filter: var(--glass-filter, blur(12px) saturate(180%) brightness(1.04));
+  backdrop-filter: var(--glass-filter, blur(12px) saturate(180%) brightness(1.04));
+  --surface-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.42),
+    inset 0 -1px 0 0 rgb(255 255 255 / 0.06),
+    inset 0 0 18px 0 rgb(255 255 255 / 0.05),
+    0 12px 32px -12px rgb(0 0 0 / 0.5);
+  box-shadow: var(--ring, 0 0 #0000), var(--surface-shadow);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgb(255 255 255 / 0.6),
+      rgb(255 255 255 / 0.08) 38%,
+      rgb(255 255 255 / 0.04) 62%,
+      rgb(255 255 255 / 0.3)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    pointer-events: none;
+  }
+}
+
+/* Panels hold small text, so they're darker and blur more. Use with `glass`. */
+@utility glass-panel {
+  --glass-bg:
+    linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.03) 50%),
+    rgb(6 12 22 / 0.52);
+  --glass-filter: blur(28px) saturate(180%);
+}
+
+/* A control inside a glass surface: no surface of its own until hovered. */
+@utility glass-control {
+  border-radius: 9999px;
+  transition:
+    background-color var(--duration-fast) var(--ease-glass),
+    transform var(--duration-fast) var(--ease-glass);
+
+  &:hover { background-color: rgb(255 255 255 / 0.12); }
+  &:active { transform: scale(0.96); }
+}
+
+/* The selected or primary state on glass: a bright fill with ink text. */
+@utility glass-selected {
+  background-color: rgb(255 255 255 / 0.92);
+  color: var(--color-ink);
+
+  &:hover { background-color: rgb(255 255 255 / 0.82); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    --glass-bg: rgb(6 12 22 / 0.92);
+    --glass-filter: none;
+  }
+}
+
+/* ── Focus ───────────────────────────────────────────────────────────────────
+   One focus style, keyboard only: a teal ring around a dark gap, so it holds on
+   a bright sky and on the night sea alike. The transparent outline shows in
+   forced-colors mode. */
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    --ring: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-accent);
+    box-shadow: var(--ring), var(--surface-shadow, 0 0 #0000);
+  }
+
+  /* A field draws its ring on the surface that holds it (`glass` or `field`). */
+  .glass:has(input:focus-visible),
+  .field:has(input:focus-visible) {
+    --ring: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-accent);
+    box-shadow: var(--ring), var(--surface-shadow, 0 0 #0000);
+  }
+  :is(.glass, .field) input:focus-visible {
+    --ring: 0 0 #0000;
+    box-shadow: none;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+}
+
+/* ── Text on the scene ─────────────────────────────────────────────────────── */
+
+@layer utilities {
+  .ocean-veil {
+    --scrim: radial-gradient(ellipse 58% 44% at 50% 40%, rgb(3 7 15 / calc(0.55 * var(--sky-light))) 0%, transparent 72%);
+    background:
+      var(--scrim),
+      radial-gradient(ellipse 65% 45% at 50% 58%, rgba(0, 0, 0, .52) 0%, transparent 70%),
+      linear-gradient(to bottom, rgba(3, 7, 15, .58) 0%, transparent 40%, rgba(3, 7, 15, .45) 100%);
+  }
+  .text-ocean {
+    text-shadow: 0 2px 32px rgba(0, 0, 0, .98), 0 1px 6px rgba(0, 0, 0, .85);
+  }
+  /* On phones the copy runs down over the horizon: a taller backdrop. */
+  @media (max-width: 639px) {
+    .ocean-veil {
+      --scrim: radial-gradient(ellipse 90% 40% at 50% 50%, rgb(3 7 15 / calc(0.7 * var(--sky-light))) 0%, transparent 80%);
+    }
+  }
+
+  /* The accent word in the headline: teal at dusk and night, paler as the sky
+     brightens, so it keeps 3:1 against a noon horizon. */
+  .text-accent-adaptive {
+    color: color-mix(in oklab, var(--color-accent-text), white calc(80% * var(--sky-light)));
+  }
+
+  /* The headline: a tighter dark halo on top of the soft one. */
+  .text-ocean-strong {
+    text-shadow:
+      0 0 20px rgb(0 0 0 / 0.55),
+      0 2px 32px rgb(0 0 0 / 0.98),
+      0 1px 6px rgb(0 0 0 / 0.85);
+  }
+  .glow-dot { box-shadow: 0 0 8px var(--color-accent); }
+}
+
+html,
+body {
+  min-height: 100vh;
+  background-color: var(--color-ink);
+  color: var(--color-text);
+  overflow-x: hidden;
 }

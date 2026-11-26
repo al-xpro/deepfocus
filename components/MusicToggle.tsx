@@ -162,13 +162,13 @@ export default function MusicToggle({
         name="music button"
         aria-label="music button"
         onClick={handleButtonClick}
-        className="relative z-50 cursor-pointer flex h-9 w-9 items-center justify-center rounded-full border border-[#0d8c6a] bg-[#0BC6B4] hover:bg-[#0BC6B4]/30 text-white shadow-lg backdrop-blur-md transition-all focus:outline-none"
+        className="glass-control relative z-50 flex h-10 w-10 cursor-pointer items-center justify-center text-text"
       >
         <span className="flex h-[32px] items-center gap-[3px]">
           {barHeights.map((height, i) => (
             <span
               key={i}
-              className="block w-[1px] rounded-full bg-white transition-all duration-500"
+              className="block w-px rounded-full bg-current transition-all duration-500"
               style={{
                 height:                  isPlaying ? `${height}px` : "3px",
                 opacity:                 isPlaying ? 1 : 0.6,

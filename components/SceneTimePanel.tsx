@@ -52,31 +52,27 @@ function PanelContent({
   };
 
   return (
-    <div className="w-full flex flex-col rounded-t-[2rem] sm:rounded-[1.5rem] bg-black/50 border border-white/10 p-6 pb-10 sm:pb-6 text-white min-w-[320px]">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="space-y-1 gap-2">
-          <h4 className="text-[0.65rem] font-bold uppercase tracking-[0.3em] text-[#0BC6B4]">
-            Scene Time
-          </h4>
-        </div>
+    <div className="glass glass-panel flex w-full min-w-[320px] flex-col rounded-t-panel p-5 pb-10 text-text sm:rounded-panel sm:pb-5">
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="text-[0.6875rem] font-medium uppercase tracking-[0.22em] text-faint">
+          Scene time
+        </h2>
         <button
           type="button"
           onClick={() => onChange(null)}
-          className={`px-4 py-1.5 cursor-pointer rounded-full border border-white/10 hover:bg-[#07786d]/50 text-[0.65rem] font-bold uppercase tracking-widest transition-all focus-within:ring-3 focus-within:ring-[#0BC6B4] focus-within:border-[#0d8c6a] focus-within:outline-none ${
-            value === null
-              ? "bg-[#0BC6B4] hover:bg-[#0BC6B4]! text-black"
-              : "bg-white/5 text-white/60"
+          className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors duration-(--duration-fast) ${
+            value === null ? "glass-selected" : "bg-white/8 text-muted hover:bg-white/14"
           }`}
         >
           {value === null ? "Live Local Time" : "Manual Time"}
         </button>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-3 flex flex-col items-center focus-within:ring-3 focus-within:ring-[#0BC6B4] focus-within:border-[#0d8c6a] focus-within:outline-none">
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="field flex flex-col items-center rounded-control bg-white/6 p-3 ring-1 ring-white/10 ring-inset">
           <label
             htmlFor={`${idPrefix}-hours`}
-            className="text-[0.55rem] uppercase tracking-widest text-white/55 mb-1"
+            className="mb-1 text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-faint"
           >
             Hours
           </label>
@@ -87,13 +83,13 @@ function PanelContent({
             aria-label="hours"
             value={hoursInput}
             onChange={(e) => handleManualChange(parseInt(e.target.value || "0"), minutesInput)}
-            className="bg-transparent text-2xl font-mono text-center w-full outline-none text-[#0BC6B4]"
+            className="w-full bg-transparent text-center font-mono text-2xl tabular-nums text-text outline-none"
           />
         </div>
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-3 flex flex-col items-center focus-within:ring-3 focus-within:ring-[#0BC6B4] focus-within:border-[#0d8c6a] focus-within:outline-none">
+        <div className="field flex flex-col items-center rounded-control bg-white/6 p-3 ring-1 ring-white/10 ring-inset">
           <label
             htmlFor={`${idPrefix}-minutes`}
-            className="text-[0.55rem] uppercase tracking-widest text-white/55 mb-1"
+            className="mb-1 text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-faint"
           >
             Minutes
           </label>
@@ -104,7 +100,7 @@ function PanelContent({
             aria-label="minutes"
             value={minutesInput}
             onChange={(e) => handleManualChange(hoursInput, parseInt(e.target.value || "0"))}
-            className="bg-transparent text-2xl font-mono text-center w-full outline-none text-[#0BC6B4]"
+            className="w-full bg-transparent text-center font-mono text-2xl tabular-nums text-text outline-none"
           />
         </div>
       </div>
@@ -118,18 +114,14 @@ function PanelContent({
               key={hour}
               type="button"
               onClick={() => handleManualChange(hour, 0)}
-              className={`flex flex-col cursor-pointer items-center justify-center rounded-xl py-3 transition-all hover:bg-[#07786d]/50 border border-white/10 focus-within:ring-3 focus-within:ring-[#0BC6B4] focus-within:border-[#0d8c6a] focus-within:outline-none ${
-                active ? "bg-[#0BC6B4] hover:bg-[#0BC6B4]!" : "bg-white/5"
+              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-control py-3 transition-colors duration-(--duration-fast) ${
+                active ? "glass-selected" : "bg-white/6 ring-1 ring-white/10 ring-inset hover:bg-white/12"
               }`}
             >
-              <span className={`font-mono text-sm ${active ? "text-black" : "text-white/55"}`}>
+              <span className={`font-mono text-xs tabular-nums ${active ? "text-ink/70" : "text-faint"}`}>
                 {hour.toString().padStart(2, "0")}:00
               </span>
-              <span
-                className={`text-[12px] mt-1 uppercase leading-none font-black text-center ${active ? "text-black" : "text-[#0BC6B4]"}`}
-              >
-                {label}
-              </span>
+              <span className="text-[0.8125rem] font-medium leading-none">{label}</span>
             </button>
           );
         })}
@@ -237,16 +229,23 @@ export default function SceneTimePanel({
         aria-label="time panel"
         name="time panel"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex h-10 cursor-pointer items-center gap-2 rounded-full border border-[#0d8c6a] bg-[#0BC6B4] hover:bg-[#0BC6B4]/30 px-3 text-sm font-mono tracking-[0.18em] text-white shadow-xl focus-within:ring-3 focus-within:ring-[#0BC6B4] focus-within:border-[#0d8c6a] focus-within:outline-none"
+        className="glass-control flex h-10 cursor-pointer items-center gap-1.5 pl-3.5 pr-3 font-mono text-sm font-medium tabular-nums tracking-[0.04em] text-text"
       >
-        <span className="font-bold" suppressHydrationWarning>
-          {label}
-        </span>
-        <span
-          className={`relative top-[1px] text-[0.7rem] transition-transform ${isOpen ? "rotate-180" : ""}`}
+        <span suppressHydrationWarning>{label}</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 12 12"
+          className={`h-3 w-3 text-muted transition-transform duration-(--duration-base) ease-(--ease-glass) ${isOpen ? "rotate-180" : ""}`}
         >
-          ▼
-        </span>
+          <path
+            d="M3 4.5 6 7.5 9 4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
 
       {mounted &&
@@ -269,8 +268,7 @@ export default function SceneTimePanel({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
                   style={{ top: dropdownPos.top, left: dropdownPos.left }}
-                  className="hidden sm:block absolute w-[24rem] pointer-events-auto
-             max-h-[80vh] overflow-y-auto rounded-[1.5rem]"
+                  className="pointer-events-auto absolute hidden max-h-[80vh] w-[24rem] overflow-y-auto rounded-panel sm:block"
                 >
                   <PanelContent
                     value={value}
