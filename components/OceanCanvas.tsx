@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Preload, useProgress } from "@react-three/drei";
+import { useReducedMotion } from "framer-motion";
 import * as THREE from "three";
 import OceanScene from "./scene/OceanScene";
 import { setSceneTimeOverride } from "./scene/sceneParams";
+import { motionPrefs } from "./scene/motionPrefs";
 
 function SceneLoadReporter({
   onProgressChange,
@@ -23,63 +25,55 @@ function SceneLoadReporter({
 
   useEffect(() => {
     if (readyLatched) return;
-
-    const hasLoadedAssets = total > 0 && loaded >= total;
-    const hasReachedFullProgress = progress >= 99.9;
-    const isReady = hasLoadedAssets && hasReachedFullProgress && !active;
-
-    if (!isReady) {
-      onReadyChange?.(false);
-      return;
-    }
+    const isReady = total > 0 && loaded >= total && progress >= 99.9 && !active;
+    if (!isReady) return;
 
     const timeout = window.setTimeout(() => {
       setReadyLatched(true);
       onReadyChange?.(true);
     }, 650);
-
     return () => clearTimeout(timeout);
   }, [active, loaded, onReadyChange, progress, readyLatched, total]);
-
-  useEffect(() => {
-    return () => onReadyChange?.(false);
-  }, [onReadyChange]);
 
   return null;
 }
 
+/**
+ * The 3D scene, filling the page behind it: at least the viewport, and taller
+ * when the page is (a phone held sideways), so the landscape never squashes.
+ * `onProgressChange` and `onReadyChange` drive the loading panel.
+ */
 export default function OceanCanvas({
   timeOverrideHour = null,
+  showModels = true,
   onProgressChange,
   onReadyChange,
 }: {
   timeOverrideHour?: number | null;
+  /** False for a lighter scene: sky, sea and stars, no models (the 404 page). */
+  showModels?: boolean;
   onProgressChange?: (progress: number) => void;
   onReadyChange?: (ready: boolean) => void;
 }) {
-  const [sceneReady, setSceneReady] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     setSceneTimeOverride(timeOverrideHour);
   }, [timeOverrideHour]);
 
-  const handleReadyChange = useCallback((ready: boolean) => {
-    setSceneReady(ready);
-    onReadyChange?.(ready);
-  }, [onReadyChange]);
+  useEffect(() => {
+    motionPrefs.reduced = Boolean(reduceMotion);
+  }, [reduceMotion]);
 
   return (
     <Canvas
       dpr={[1, 1.5]}
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
+        position: "absolute",
+        inset: 0,
         width: "100%",
         height: "100%",
         pointerEvents: "auto",
-        opacity: sceneReady ? 1 : 0,
-        transition: "opacity 850ms ease",
         zIndex: 0,
       }}
       camera={{
@@ -98,8 +92,8 @@ export default function OceanCanvas({
       }}
     >
       <Preload all />
-      <SceneLoadReporter onProgressChange={onProgressChange} onReadyChange={handleReadyChange} />
-      <OceanScene />
+      <SceneLoadReporter onProgressChange={onProgressChange} onReadyChange={onReadyChange} />
+      <OceanScene showModels={showModels} />
     </Canvas>
   );
 }

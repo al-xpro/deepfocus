@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useAnimations, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getSceneDate, sceneParams } from "./sceneParams";
 import { getSceneSnapshot, vecFromSpherical } from "./timeUtils";
+import { motionPrefs } from "./motionPrefs";
 
 interface EncounterSet {
   dolphinSeedA: number;
@@ -1169,6 +1170,7 @@ function DolphinEncounter({
 
     // LOGICA DI INVITO E INIZIO GARA/GRUPPO
     if (
+      !motionPrefs.reduced &&
       motion.phase === "cruise" &&
       podRef.current &&
       podRef.current.leaderId !== id &&
@@ -1197,7 +1199,9 @@ function DolphinEncounter({
     }
 
     if (motion.phase === "cruise") {
+      // Under reduced motion the dolphins swim but don't leap.
       if (
+        !motionPrefs.reduced &&
         elapsed >= motion.actionAt &&
         nearestObstacleDistance(motion.position) > DOLPHIN_MOTION.avoidanceRadius + 140
       ) {
@@ -1294,6 +1298,11 @@ function DolphinEncounter({
   );
 }
 
+/** Each model loads on its own boundary; the loading panel covers the wait. */
+function Arrival({ children }: { children: ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
+
 export default function SceneEncounters() {
   const [encounter] = useState<EncounterSet>(() => createEncounterSet());
   const sharedPositionsRef = useRef<Record<string, THREE.Vector3>>({});
@@ -1303,37 +1312,47 @@ export default function SceneEncounters() {
     <>
       <EncounterLightRig />
 
-      <PromontoryEncounter />
-      <CliffEncounter />
-      <CliffGroup1Encounter />
-      <CliffGroup2Encounter />
-      <VolcanoEncounter />
-      <RockReefEncounter />
+      <Arrival><PromontoryEncounter /></Arrival>
+      <Arrival><CliffEncounter /></Arrival>
+      <Arrival><CliffGroup1Encounter /></Arrival>
+      <Arrival><CliffGroup2Encounter /></Arrival>
+      <Arrival><VolcanoEncounter /></Arrival>
+      <Arrival><RockReefEncounter /></Arrival>
 
-      <DolphinEncounter
-        id="dolphin-a"
-        seed={encounter.dolphinSeedA}
-        scale={10}
-        sharedPositionsRef={sharedPositionsRef}
-        podRef={podRef}
-      />
-      <DolphinEncounter
-        id="dolphin-b"
-        seed={encounter.dolphinSeedB}
-        scale={10}
-        sharedPositionsRef={sharedPositionsRef}
-        podRef={podRef}
-      />
-      <DolphinEncounter
-        id="dolphin-c"
-        seed={encounter.dolphinSeedC}
-        scale={10}
-        sharedPositionsRef={sharedPositionsRef}
-        podRef={podRef}
-      />
+      <Arrival>
+        <DolphinEncounter
+          id="dolphin-a"
+          seed={encounter.dolphinSeedA}
+          scale={10}
+          sharedPositionsRef={sharedPositionsRef}
+          podRef={podRef}
+        />
+      </Arrival>
+      <Arrival>
+        <DolphinEncounter
+          id="dolphin-b"
+          seed={encounter.dolphinSeedB}
+          scale={10}
+          sharedPositionsRef={sharedPositionsRef}
+          podRef={podRef}
+        />
+      </Arrival>
+      <Arrival>
+        <DolphinEncounter
+          id="dolphin-c"
+          seed={encounter.dolphinSeedC}
+          scale={10}
+          sharedPositionsRef={sharedPositionsRef}
+          podRef={podRef}
+        />
+      </Arrival>
     </>
   );
 }
+
+// The Draco decoder is self-hosted (copied from three/examples/jsm/libs/draco/gltf),
+// so loading the models never calls a third-party CDN.
+useGLTF.setDecoderPath("/draco/");
 
 useGLTF.preload("/models/promontory.glb");
 useGLTF.preload("/models/cliff_rock.glb");

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/al-xpro/deepfocus/security/advisories/new
+    about: Report it privately, not as a public issue.
+  - name: Work enquiries
+    url: https://alxpro.com
+    about: DeepFocus is a fictional product. Enquiries go to AlxPro.

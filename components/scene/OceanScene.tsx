@@ -3,12 +3,15 @@
 import { Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { useReducedMotion } from "framer-motion";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Sky as SkyImpl } from "three/examples/jsm/objects/Sky.js";
 import * as THREE from "three";
 import Ocean from "./Ocean";
 import SceneEncounters from "./SceneEncounters";
 import { getSceneDate, sceneParams } from "./sceneParams";
 import { getSceneSnapshot, type SceneSnapshot, vecFromSpherical } from "./timeUtils";
+import { publishSceneTone } from "./sceneTone";
 
 const SKY_OBJECT_LAYER = 1;
 
@@ -920,6 +923,8 @@ function Comet({
 
 function CometField() {
   const cometSeeds = useMemo(() => createCometSeeds(8), []);
+  // Shooting stars are motion for its own sake: none under reduced motion.
+  if (useReducedMotion()) return null;
 
   return (
     <>
@@ -1090,7 +1095,56 @@ function SunGlow() {
   );
 }
 
-export default function OceanScene() {
+// The view turns slowly and endlessly: a full turn in about four minutes. A drag
+// pauses it; it picks up again, easing in, a few seconds after the drag ends.
+// Under reduced motion it never turns on its own.
+const TURNS_PER_MINUTE = 0.25;
+const RESUME_AFTER = 5; // seconds
+
+function LookControls() {
+  const controls = useRef<OrbitControlsImpl>(null);
+  const dragging = useRef(false);
+  const resumeAt = useRef(0);
+  const speed = useRef(0);
+  const reduceMotion = useReducedMotion();
+
+  useFrame((_, delta) => {
+    const c = controls.current;
+    if (!c) return;
+    const dt = Math.min(delta, 0.1);
+    const now = performance.now() / 1000;
+    const target = reduceMotion || dragging.current || now < resumeAt.current ? 0 : TURNS_PER_MINUTE;
+    speed.current += (target - speed.current) * (1 - Math.exp(-dt * 0.8));
+    c.autoRotate = speed.current > 0.0005;
+    // OrbitControls turns a fixed angle per update: scale it by the frame time,
+    // so the speed is the same at 60 and 120 frames a second.
+    c.autoRotateSpeed = speed.current * dt * 60;
+  });
+
+  return (
+    <OrbitControls
+      ref={controls}
+      enablePan={false}
+      enableZoom={false}
+      enableDamping
+      dampingFactor={0.06}
+      rotateSpeed={0.45}
+      minPolarAngle={Math.PI * 0.16}
+      maxPolarAngle={Math.PI * 0.525}
+      target={[0, 8, 0]}
+      onStart={() => {
+        dragging.current = true;
+        speed.current = 0;
+      }}
+      onEnd={() => {
+        dragging.current = false;
+        resumeAt.current = performance.now() / 1000 + RESUME_AFTER;
+      }}
+    />
+  );
+}
+
+export default function OceanScene({ showModels = true }: { showModels?: boolean }) {
   const { gl, scene: threeScene, camera } = useThree();
 
   const sky = useMemo(() => {
@@ -1169,6 +1223,7 @@ export default function OceanScene() {
     }
 
     state.gl.toneMappingExposure = scene.exposure;
+    publishSceneTone(scene);
   });
 
   return (
@@ -1181,20 +1236,12 @@ export default function OceanScene() {
         <CometField />
       </CelestialLayer>
       <Moon />
+      {/* The sea has its own boundary, so it doesn't wait for the models. */}
       <Suspense fallback={null}>
         <Ocean />
-        <SceneEncounters />
       </Suspense>
-      <OrbitControls
-        enablePan={false}
-        enableZoom={false}
-        enableDamping
-        dampingFactor={0.06}
-        rotateSpeed={0.45}
-        minPolarAngle={Math.PI * 0.16}
-        maxPolarAngle={Math.PI * 0.525}
-        target={[0, 8, 0]}
-      />
+      {showModels ? <SceneEncounters /> : null}
+      <LookControls />
     </>
   );
 }
