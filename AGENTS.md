@@ -27,11 +27,16 @@ Run typecheck, lint and build before every commit. CI runs the same three.
 app/                    layout, metadata, the one page
 components/             interface: page, panels, sound, loader
 components/scene/       the 3D scene (React Three Fiber)
-  OceanScene.tsx        sky, environment map, stars, moon, sun, camera
+  OceanScene.tsx        sky, environment map, haze, stars, moon, sun, camera
   Ocean.tsx             the water
-  SceneEncounters.tsx   lights, environment models, dolphins
+  SceneEncounters.tsx   lights; mounts the landscape, the dolphins, the gulls, the water effects
+  landscape.tsx         placed models: promontory, reef and its palms, rocks, the volcano
+  dolphins/             the pod: brain.ts (pure behavior, tested) and Dolphins.tsx
+  life/Gulls.tsx        seagulls: fly-bys, feeding on the water, perching on the rocks
+  fx/                   water contact: spray, foam, ripples (pools and their renderer)
+  sceneFrame.ts         the snapshot for this frame, where the view looks, the haze color
   sceneConfig.ts        day, twilight and night values for every scene parameter
-  timeUtils.ts          sun position and the per-frame scene snapshot
+  timeUtils.ts          sun position and the scene snapshot for a moment
   sceneParams.ts        the time override (and, later, place and weather)
 public/models/          glTF models (third-party, see CREDITS.md)
 ```
@@ -40,15 +45,17 @@ public/models/          glTF models (third-party, see CREDITS.md)
 
 - **Third-party assets:** add only assets whose license allows a public repository and a
   portfolio site. Prefer CC0 and CC BY; never add NonCommercial (NC) or "editorial use"
-  assets. List every one in `CREDITS.md`: title, author, source URL, license, and what was
-  changed.
+  assets on your own. The only NC assets are the dolphin (CC BY-NC) and the seagull
+  (CC BY-NC-SA), kept by the maintainer's decision because DeepFocus is non-commercial; a
+  ShareAlike asset's modified copy keeps its license. List every asset in `CREDITS.md`:
+  title, author, source URL, license, and what was changed.
 - **Nature only:** the scene shows the sea, the sky, the land and its flora and fauna.
   No buildings, boats, lighthouses or other man-made objects.
 - **Models:** give every model a budget in `scripts/optimize-models.mjs` and run it
   (simplify, meshopt, WebP) before adding the model; state its triangle count and size in
   the pull request. Distant objects need a few percent of a source model's triangles.
-  The scene is about 2.6 MB of models (brotli) and 165K triangles; most of it is the
-  promontory, which keeps its texture. Anything new has to justify its weight.
+  The scene is about 2.8 MB of models (brotli) and 146K triangles in the files; most of
+  it is the promontory, which keeps its texture. Anything new has to justify its weight.
 - **The frame loop:** no allocations inside `useFrame` (reuse vectors, colors and
   arrays), and no React state updates per frame. Read the scene snapshot; don't recompute
   it per component.

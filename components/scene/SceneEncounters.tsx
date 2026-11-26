@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { vecFromSpherical } from "./timeUtils";
@@ -8,10 +8,7 @@ import { getFrameSnapshot } from "./sceneFrame";
 import { Landmark, PLACEMENTS, ReefPalms, Volcano } from "./landscape";
 import Dolphins from "./dolphins/Dolphins";
 import WaterFx from "./fx/WaterFx";
-import Birds from "./life/Birds";
-import FishSchool from "./life/FishSchool";
-import Whale from "./life/Whale";
-import TouchWater from "./TouchWater";
+import Gulls from "./life/Gulls";
 
 // Everything that lives in the scene besides the sky and the sea: the light,
 // the landscape, and the life. Each model loads on its own boundary; the
@@ -100,6 +97,11 @@ function Arrival({ children }: { children: ReactNode }) {
 
 export default function SceneEncounters() {
   const [reef, setReef] = useState<THREE.Object3D | null>(null);
+  // The rocks gulls can perch on, as they arrive.
+  const [rocks, setRocks] = useState<THREE.Object3D[]>([]);
+  const addRock = useCallback((rock: THREE.Object3D) => {
+    setRocks((current) => (current.includes(rock) ? current : [...current, rock]));
+  }, []);
 
   return (
     <>
@@ -114,13 +116,13 @@ export default function SceneEncounters() {
         </Landmark>
       </Arrival>
       <Arrival>
-        <Landmark placement={PLACEMENTS.cliffRock} />
+        <Landmark placement={PLACEMENTS.cliffRock} onModel={addRock} />
       </Arrival>
       <Arrival>
-        <Landmark placement={PLACEMENTS.seaStacks} />
+        <Landmark placement={PLACEMENTS.seaStacks} onModel={addRock} />
       </Arrival>
       <Arrival>
-        <Landmark placement={PLACEMENTS.seaStacksSmall} />
+        <Landmark placement={PLACEMENTS.seaStacksSmall} onModel={addRock} />
       </Arrival>
       <Arrival>
         <Volcano />
@@ -130,12 +132,9 @@ export default function SceneEncounters() {
         <Dolphins />
       </Arrival>
       <Arrival>
-        <Whale />
+        <Gulls rocks={rocks} />
       </Arrival>
-      <FishSchool />
-      <Birds />
       <WaterFx />
-      <TouchWater />
     </>
   );
 }

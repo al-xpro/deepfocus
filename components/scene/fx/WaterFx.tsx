@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { MAX_PARTICLES, MAX_RINGS, particles, rings, stepWaterFx } from "./waterPools";
+import { MAX_FOAM, MAX_PARTICLES, MAX_RINGS, foam, particles, rings, stepWaterFx } from "./waterPools";
 import { daylightOf, getFrameSnapshot } from "../sceneFrame";
 
-// Draws the water-contact pools. By day spray is white and lit by the scene;
-// at night everything that stirs the water glows blue-green (bioluminescence),
-// close to the brand teal.
+// Draws the water-contact pools: droplets and mist, foam patches lying on the
+// water, and faint ripples. Everything takes the scene's light, so a splash at
+// night is a dim, moonlit one.
 
-const GLOW = new THREE.Color("#3fe8d2");
-const RING_Y = 0.35;
+const WATER_Y = 0.3;
+const WHITE = new THREE.Color(0xffffff);
 
 const particleVertex = /* glsl */ `
   attribute float aSize;
@@ -24,35 +24,71 @@ const particleVertex = /* glsl */ `
     vAlpha = aAlpha;
     vKind = aKind;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * uScale / max(-mvPosition.z, 1.0);
+    gl_PointSize = max(1.0, aSize * uScale / max(-mvPosition.z, 1.0));
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
 
 const particleFragment = /* glsl */ `
-  uniform vec3 uDayColor;
-  uniform vec3 uGlowColor;
-  uniform float uNight;
+  uniform vec3 uColor;
   varying float vAlpha;
   varying float vKind;
   void main() {
     float d = length(gl_PointCoord - 0.5);
-    float soft = smoothstep(0.5, 0.0, d);
-    // Sparks always glow; spray and mist glow more the darker it is.
-    float glow = vKind > 1.5 ? 1.0 : uNight * 0.85;
-    vec3 color = mix(uDayColor, uGlowColor, glow);
-    float alpha = vAlpha * soft * (vKind > 0.5 && vKind < 1.5 ? 0.55 : 0.9);
-    gl_FragColor = vec4(color, alpha);
+    // Droplets: small, fairly crisp; mist: soft and faint.
+    float edge = vKind > 0.5 ? smoothstep(0.5, 0.0, d) : smoothstep(0.5, 0.25, d);
+    float alpha = vAlpha * edge * (vKind > 0.5 ? 0.38 : 0.85);
+    gl_FragColor = vec4(uColor, alpha);
   }
 `;
 
+/** An irregular foam texture: many soft blobs clustered toward the middle. */
+function createFoamTexture() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    for (let i = 0; i < 70; i++) {
+      const r = Math.pow(Math.random(), 0.7) * size * 0.36;
+      const a = Math.random() * Math.PI * 2;
+      const x = size / 2 + Math.cos(a) * r;
+      const y = size / 2 + Math.sin(a) * r;
+      const blob = 3 + Math.random() * 12 * (1 - r / (size * 0.4));
+      const g = ctx.createRadialGradient(x, y, 0, x, y, blob);
+      g.addColorStop(0, `rgba(255,255,255,${0.35 + Math.random() * 0.4})`);
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(x - blob, y - blob, blob * 2, blob * 2);
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function hideAll(mesh: THREE.InstancedMesh, count: number) {
+  const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  const black = new THREE.Color(0, 0, 0);
+  for (let i = 0; i < count; i++) {
+    mesh.setMatrixAt(i, zero);
+    mesh.setColorAt(i, black);
+  }
+}
+
 export default function WaterFx() {
   const pointsRef = useRef<THREE.Points>(null);
+  const foamRef = useRef<THREE.InstancedMesh>(null);
   const ringsRef = useRef<THREE.InstancedMesh>(null);
   const { size, camera } = useThree();
-  const matrix = useRef(new THREE.Matrix4());
-  const color = useRef(new THREE.Color());
-  const dayColor = useRef(new THREE.Color());
+  const scratch = useRef({
+    matrix: new THREE.Matrix4(),
+    scale: new THREE.Vector3(),
+    color: new THREE.Color(),
+    light: new THREE.Color(),
+    zero: new THREE.Matrix4().makeScale(0, 0, 0),
+  });
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -60,7 +96,6 @@ export default function WaterFx() {
     g.setAttribute("aSize", new THREE.BufferAttribute(particles.size, 1).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute("aAlpha", new THREE.BufferAttribute(new Float32Array(MAX_PARTICLES), 1).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute("aKind", new THREE.BufferAttribute(particles.kind, 1).setUsage(THREE.DynamicDrawUsage));
-    // Particles go anywhere: never cull the whole system by its first bounds.
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
     return g;
   }, []);
@@ -68,12 +103,7 @@ export default function WaterFx() {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: {
-          uScale: { value: 1 },
-          uDayColor: { value: new THREE.Color("#ffffff") },
-          uGlowColor: { value: GLOW.clone() },
-          uNight: { value: 0 },
-        },
+        uniforms: { uScale: { value: 1 }, uColor: { value: new THREE.Color("#ffffff") } },
         vertexShader: particleVertex,
         fragmentShader: particleFragment,
         transparent: true,
@@ -82,11 +112,24 @@ export default function WaterFx() {
     []
   );
 
-  const ringGeometry = useMemo(() => new THREE.RingGeometry(0.94, 1, 64, 1).rotateX(-Math.PI / 2), []);
+  const foamTexture = useMemo(() => createFoamTexture(), []);
+  const foamGeometry = useMemo(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), []);
+  const foamMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        map: foamTexture,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      }),
+    [foamTexture]
+  );
+
+  const ringGeometry = useMemo(() => new THREE.RingGeometry(0.95, 1, 64, 1).rotateX(-Math.PI / 2), []);
   const ringMaterial = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: 0xffffff,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -95,62 +138,73 @@ export default function WaterFx() {
     []
   );
 
-  useFrame((_, delta) => {
-    const dt = Math.min(delta, 0.05);
-    stepWaterFx(dt);
-    const snapshot = getFrameSnapshot();
-    const night = 1 - daylightOf(snapshot);
+  useEffect(
+    () => () => {
+      [geometry, material, foamTexture, foamGeometry, foamMaterial, ringGeometry, ringMaterial].forEach((item) => item.dispose());
+    },
+    [geometry, material, foamTexture, foamGeometry, foamMaterial, ringGeometry, ringMaterial]
+  );
 
-    // Particles: alpha from remaining life, size scale from the viewport.
+  useFrame((_, delta) => {
+    const s = scratch.current;
+    stepWaterFx(Math.min(delta, 0.05));
+    const snapshot = getFrameSnapshot();
+    const daylight = daylightOf(snapshot);
+    // Lit like the scene: white by day, warm at dusk, a dim moonlit grey at night.
+    s.light.setHex(snapshot.lightColorHex).lerp(WHITE, 0.4).multiplyScalar(0.18 + 0.82 * daylight);
+
     const points = pointsRef.current;
     if (points) {
       const alpha = points.geometry.getAttribute("aAlpha") as THREE.BufferAttribute;
       const a = alpha.array as Float32Array;
       for (let i = 0; i < MAX_PARTICLES; i++) {
         const life = particles.life[i];
-        if (life <= 0) {
-          a[i] = 0;
-          continue;
-        }
-        const t = life / particles.maxLife[i];
-        a[i] = Math.min(1, t * 2.2) * Math.min(1, (1 - t) * 8 + 0.2);
+        a[i] = life <= 0 ? 0 : Math.min(1, (life / particles.maxLife[i]) * 2.5);
       }
       alpha.needsUpdate = true;
       points.geometry.getAttribute("position").needsUpdate = true;
       points.geometry.getAttribute("aSize").needsUpdate = true;
       points.geometry.getAttribute("aKind").needsUpdate = true;
-
       const shader = points.material as THREE.ShaderMaterial;
       const fov = (camera as THREE.PerspectiveCamera).fov ?? 55;
       shader.uniforms.uScale.value = (size.height * 0.5) / Math.tan(THREE.MathUtils.degToRad(fov / 2));
-      shader.uniforms.uNight.value = night;
-      // Day spray takes the scene's light, dimmer as the sun goes down.
-      dayColor.current.setHex(snapshot.lightColorHex).multiplyScalar(0.35 + 0.65 * (1 - night));
-      (shader.uniforms.uDayColor.value as THREE.Color).copy(dayColor.current);
-      shader.blending = night > 0.5 ? THREE.AdditiveBlending : THREE.NormalBlending;
+      (shader.uniforms.uColor.value as THREE.Color).copy(s.light);
     }
 
-    // Ripples: expanding, fading rings; additive, so brightness is opacity.
+    const foamMesh = foamRef.current;
+    if (foamMesh) {
+      for (let i = 0; i < MAX_FOAM; i++) {
+        const t = foam.life[i] > 0 ? foam.age[i] / foam.life[i] : 1;
+        if (t >= 1) {
+          foamMesh.setMatrixAt(i, s.zero);
+          continue;
+        }
+        const spread = foam.size[i] * (0.7 + 0.9 * Math.sqrt(t)) * 2;
+        s.matrix.makeRotationY(foam.angle[i]).scale(s.scale.set(spread, 1, spread)).setPosition(foam.x[i], WATER_Y, foam.z[i]);
+        foamMesh.setMatrixAt(i, s.matrix);
+        // Quick to appear, slow to break up.
+        const fade = Math.min(1, t * 12) * Math.pow(1 - t, 1.4) * foam.strength[i];
+        s.color.copy(s.light).multiplyScalar(fade * 0.85);
+        foamMesh.setColorAt(i, s.color);
+      }
+      foamMesh.instanceMatrix.needsUpdate = true;
+      if (foamMesh.instanceColor) foamMesh.instanceColor.needsUpdate = true;
+    }
+
     const ringMesh = ringsRef.current;
     if (ringMesh) {
       for (let i = 0; i < MAX_RINGS; i++) {
         const t = rings.life[i] > 0 ? rings.age[i] / rings.life[i] : 1;
         if (t >= 1) {
-          matrix.current.makeScale(0, 0, 0);
-          ringMesh.setMatrixAt(i, matrix.current);
+          ringMesh.setMatrixAt(i, s.zero);
           continue;
         }
-        const ease = 1 - (1 - t) * (1 - t);
-        const radius = rings.size[i] * (0.25 + 1.75 * ease);
-        matrix.current.makeScale(radius, 1, radius).setPosition(rings.x[i], RING_Y, rings.z[i]);
-        ringMesh.setMatrixAt(i, matrix.current);
-        const fade = Math.pow(1 - t, 1.6) * rings.strength[i];
-        color.current
-          .setRGB(0.32, 0.36, 0.4)
-          .lerp(GLOW, night)
-          // Faint by day (real ripples barely show), bright at night (the glow).
-          .multiplyScalar(fade * (0.22 + 1.0 * night));
-        ringMesh.setColorAt(i, color.current);
+        const radius = rings.size[i] * (0.3 + 1.7 * (1 - (1 - t) * (1 - t)));
+        s.matrix.makeScale(radius, 1, radius).setPosition(rings.x[i], WATER_Y, rings.z[i]);
+        ringMesh.setMatrixAt(i, s.matrix);
+        // Barely there: real ripples show as a change in the reflection.
+        s.color.copy(s.light).multiplyScalar(Math.pow(1 - t, 1.8) * rings.strength[i] * 0.14);
+        ringMesh.setColorAt(i, s.color);
       }
       ringMesh.instanceMatrix.needsUpdate = true;
       if (ringMesh.instanceColor) ringMesh.instanceColor.needsUpdate = true;
@@ -159,20 +213,9 @@ export default function WaterFx() {
 
   return (
     <>
+      <instancedMesh ref={foamRef} args={[foamGeometry, foamMaterial, MAX_FOAM]} frustumCulled={false} onUpdate={(mesh) => hideAll(mesh, MAX_FOAM)} />
+      <instancedMesh ref={ringsRef} args={[ringGeometry, ringMaterial, MAX_RINGS]} frustumCulled={false} onUpdate={(mesh) => hideAll(mesh, MAX_RINGS)} />
       <points ref={pointsRef} geometry={geometry} material={material} frustumCulled={false} />
-      <instancedMesh
-        ref={ringsRef}
-        args={[ringGeometry, ringMaterial, MAX_RINGS]}
-        frustumCulled={false}
-        onUpdate={(mesh) => {
-          // Start every ring hidden and give the mesh its per-ring colors.
-          const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-          for (let i = 0; i < MAX_RINGS; i++) {
-            mesh.setMatrixAt(i, zero);
-            mesh.setColorAt(i, new THREE.Color(0, 0, 0));
-          }
-        }}
-      />
     </>
   );
 }

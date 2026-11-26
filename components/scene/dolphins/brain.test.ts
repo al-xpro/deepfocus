@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSeededRandom } from "../random";
-import { attract, createPod, GRAVITY, LEAP_HEIGHT, stepDolphin, stepPod, type Dolphin, type World } from "./brain";
+import { createPod, formationSlot, GRAVITY, LEAP_HEIGHT, stepDolphin, stepPod, type Dolphin, type World } from "./brain";
 
 const DT = 1 / 60;
 
@@ -106,6 +106,37 @@ describe("the pod", () => {
     expect(farthest).toBeLessThan(world.maxRadius * 1.05);
   });
 
+  it("leans into its turns, never out of them", () => {
+    let into = 0;
+    let out = 0;
+    simulate(300, makeWorld({ reducedMotion: true }), 5, (pod) => {
+      for (const d of pod) {
+        if (Math.abs(d.turnRate) < 0.15 || Math.abs(d.bank) < 0.05) continue;
+        if (Math.sign(d.bank) === Math.sign(d.turnRate)) into++;
+        else out++;
+      }
+    });
+    expect(into).toBeGreaterThan(100);
+    expect(out / (into + out)).toBeLessThan(0.1);
+  });
+
+  it("keeps to the water in view when it knows where the viewer looks", () => {
+    const eye = { bearing: 0, x: 0, z: 90 };
+    const world = makeWorld({ view: eye, maxRadius: 800 });
+    let inView = 0;
+    let all = 0;
+    simulate(600, world, 9, (pod) => {
+      for (const d of pod) {
+        if (d.phase !== "airborne") continue;
+        all++;
+        const bearing = Math.atan2(d.x - eye.x, -(d.z - eye.z));
+        if (Math.abs(bearing) < 0.9) inView++;
+      }
+    });
+    expect(all).toBeGreaterThan(100);
+    expect(inView / all).toBeGreaterThan(0.7);
+  });
+
   it("breathes at the surface", () => {
     expect(simulate(120, makeWorld()).counts.breath).toBeGreaterThan(3);
   });
@@ -117,25 +148,36 @@ describe("the pod", () => {
   });
 });
 
-describe("a tap on the water", () => {
-  it("brings the nearest cruising dolphin to look, and it leaps there", () => {
-    const world = makeWorld({ daylight: 0 });
-    const random = createSeededRandom(5);
-    const pod = createPod(3, world, random);
-    const target = { x: pod[1].x + 300, z: pod[1].z };
-    const chosen = attract(pod, target.x, target.z);
-    expect(chosen).not.toBeNull();
+describe("pod leaps", () => {
+  it("keeps the followers in formation beside the leader nearly all the time", () => {
+    const world = makeWorld({ reducedMotion: true });
+    const offsets: number[] = [];
+    simulate(300, world, 3, (pod) => {
+      if (world.time < 20) return; // time to gather
+      for (const d of pod.slice(1)) {
+        const [x, z] = formationSlot(d, pod[0]);
+        offsets.push(Math.hypot(d.x - x, d.z - z));
+      }
+    });
+    offsets.sort((a, b) => a - b);
+    // Sharp turns open the formation for a moment; it closes again.
+    expect(offsets[Math.floor(offsets.length * 0.5)]).toBeLessThan(25);
+    expect(offsets[Math.floor(offsets.length * 0.95)]).toBeLessThan(90);
+  });
 
-    let leaptNear = false;
-    const events = {
-      exit: (d: Dolphin) => {
-        if (d === chosen && Math.hypot(d.x - target.x, d.z - target.z) < 200) leaptNear = true;
-      },
-    };
-    for (let t = 0; t < 40 && !leaptNear; t += DT) {
+  it("leaves the water together: the whole pod within a fifth of a second", () => {
+    const world = makeWorld();
+    const random = createSeededRandom(21);
+    const pod = createPod(3, world, random);
+    const exits: Array<{ id: number; time: number }> = [];
+    const events = { exit: (d: Dolphin) => exits.push({ id: d.id, time: world.time }) };
+    for (let t = 0; t < 600; t += DT) {
       world.time += DT;
       stepPod(pod, world, DT, random, events);
     }
-    expect(leaptNear).toBe(true);
+    const together = exits.filter((e) => e.id === 0).filter((lead) =>
+      [1, 2].every((id) => exits.some((e) => e.id === id && Math.abs(e.time - lead.time) < 0.2))
+    );
+    expect(together.length).toBeGreaterThan(3);
   });
 });

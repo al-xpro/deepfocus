@@ -11,7 +11,7 @@ import Ocean from "./Ocean";
 import SceneEncounters from "./SceneEncounters";
 import { type SceneSnapshot, vecFromSpherical } from "./timeUtils";
 import { publishSceneTone } from "./sceneTone";
-import { getFrameSnapshot, updateFrameSnapshot, view } from "./sceneFrame";
+import { daylightOf, getFrameSnapshot, hazeColor, updateFrameSnapshot, view } from "./sceneFrame";
 
 const SKY_OBJECT_LAYER = 1;
 
@@ -505,6 +505,36 @@ function buildEnvironmentKey(scene: SceneSnapshot) {
 
 function setSceneEnvironment(scene: THREE.Scene, texture: THREE.Texture | null) {
   scene.environment = texture;
+}
+
+/**
+ * Night light for the environment map. Below the horizon the sky shader turns a
+ * dark maroon, and every model takes the environment as its ambient light, so
+ * after sunset the volcano, the rocks and the animals all took a red-brown cast.
+ * This dome lives only in the scene the environment map is rendered from (the
+ * visible sky is untouched) and fades in to a dim moonlit blue as the daylight
+ * goes. PMREM renders with a far plane of 100, hence the small radius.
+ */
+const NIGHT_ENVIRONMENT = new THREE.Color("#1c2638");
+
+function createNightDome() {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(50, 32, 16),
+    new THREE.MeshBasicMaterial({
+      color: NIGHT_ENVIRONMENT,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      fog: false,
+      toneMapped: false,
+    })
+  );
+}
+
+function updateNightDome(dome: THREE.Mesh, snapshot: SceneSnapshot) {
+  const night = 1 - daylightOf(snapshot);
+  (dome.material as THREE.MeshBasicMaterial).opacity = THREE.MathUtils.smoothstep(night, 0.15, 0.85) * 0.95;
 }
 
 function createGlowTexture() {
@@ -1166,27 +1196,16 @@ function ViewTracker() {
   return null;
 }
 
-const HAZE_DAY = new THREE.Color("#d3e2ec");
-const HAZE_NIGHT = new THREE.Color("#0a1220");
-const HAZE_DUSK = new THREE.Color("#7d6f95");
-
 /**
  * Haze tinted by the sky, thickening with distance: the far volcano and islands
  * sit in the air instead of on it. The sky and the sea keep their own colors.
  */
 function Haze() {
   const fog = useRef<THREE.FogExp2>(null);
-  const twilight = useRef(new THREE.Color());
   useFrame(() => {
-    if (!fog.current) return;
-    const scene = getFrameSnapshot();
-    twilight.current.setHex(scene.sunColorHex).lerp(HAZE_DUSK, 0.55);
-    fog.current.color
-      .copy(HAZE_DAY)
-      .lerp(twilight.current, scene.twilightFactor)
-      .lerp(HAZE_NIGHT, scene.nightFactor);
+    if (fog.current) hazeColor(getFrameSnapshot(), fog.current.color);
   });
-  return <fogExp2 ref={fog} attach="fog" args={["#d3e2ec", 0.000092]} />;
+  return <fogExp2 ref={fog} attach="fog" args={["#d3e2ec", 0.00006]} />;
 }
 
 export default function OceanScene({ showModels = true }: { showModels?: boolean }) {
@@ -1220,11 +1239,13 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
     return s;
   }, []);
   const pmremGenerator = useMemo(() => new THREE.PMREMGenerator(gl), [gl]);
+  const nightDome = useMemo(() => createNightDome(), []);
   const envScene = useMemo(() => {
     const s = new THREE.Scene();
     s.add(envSky);
+    s.add(nightDome);
     return s;
-  }, [envSky]);
+  }, [envSky, nightDome]);
   const envTargetRef = useRef<THREE.WebGLRenderTarget | null>(null);
   const envKeyRef = useRef("");
   const skyTimeRef = useRef(0);
@@ -1238,6 +1259,14 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
       pmremGenerator.dispose();
     };
   }, [camera, pmremGenerator]);
+
+  useEffect(
+    () => () => {
+      nightDome.geometry.dispose();
+      (nightDome.material as THREE.Material).dispose();
+    },
+    [nightDome]
+  );
 
   useFrame((state, delta) => {
     const scene = getFrameSnapshot();
@@ -1262,6 +1291,7 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
 
     if (envKey !== envKeyRef.current || !envTargetRef.current) {
       envKeyRef.current = envKey;
+      updateNightDome(nightDome, scene);
       envTargetRef.current?.dispose();
       envTargetRef.current = pmremGenerator.fromScene(envScene);
       setSceneEnvironment(threeScene, envTargetRef.current.texture);

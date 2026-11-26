@@ -31,12 +31,11 @@ whose sky, light and water follow the visitor's clock.
   tinted by the scene's light
 - A night sky drawn from canvas textures, with no image downloads: about 3,700 stars,
   constellation lines, shooting stars, a moon and a sun glow
-- A living sea: dolphins that cruise, breathe at the surface and leap on real ballistic
-  arcs (porpoising, the occasional breach), with spray, ripples and wakes; gulls that
-  circle and dive on a fish school; a rare whale that blows and breaches; palms on a small
-  island; and a distant active volcano with a smoke plume and lava that glows at night
-- At night the water glows blue-green wherever it's stirred; a tap on the sea sends a
-  ripple, and a dolphin may come to look
+- A living sea: a pod of dolphins that cruise, breathe at the surface and leap together on
+  real ballistic arcs (porpoising, the occasional breach), with spray, foam and ripples;
+  seagulls that cross the view, land on the water to feed or stand on the rocks; palms on
+  a small island moving in the wind; and a distant active volcano with a plume of steam
+  and a dim crater glow at night
 - Focus mode (`F`): the page steps aside for the scene, with 15, 30 or 60-minute focus
   sessions shown as a progress bar; they survive a reload and end with a soft bell
 - The view turns slowly and endlessly; drag to look around
@@ -65,7 +64,7 @@ components/             the page, dock, glass panels, focus mode, sound, credits
 components/scene/       the 3D scene
   OceanScene.tsx        sky, environment map, stars, constellations, comets, moon, sun
   Ocean.tsx             the water
-  SceneEncounters.tsx   lights, coastal models, dolphins and their behavior
+  SceneEncounters.tsx   lights; mounts the landscape, the dolphins, the gulls, the water effects
   sceneConfig.ts        day, twilight and night values for every scene parameter
   timeUtils.ts          sun position and the per-frame scene snapshot
   sceneParams.ts        the time override
@@ -73,8 +72,8 @@ components/scene/       the 3D scene
   sceneFrame.ts         the scene's state, computed once per frame and read everywhere
   landscape.tsx         where each model sits, the volcano and its plume, the palms
   dolphins/             the dolphins: a pure, tested behavior module and its renderer
-  life/                 gulls, the fish school, the whale
-  fx/                   water contact: spray, ripples, the night glow
+  life/Gulls.tsx        seagulls: fly-bys, feeding on the water, perching on the rocks
+  fx/                   water contact: spray, foam, ripples
 public/models/          glTF models (see CREDITS.md)
 ```
 
@@ -137,7 +136,8 @@ shows the work in progress.
   minimalist interface, one focus style, real dialogs, focus sessions, licensed
   self-hosted sound
 - [`v1.2 — Living ocean`](https://github.com/al-xpro/deepfocus/milestone/2): lighter
-  models, ballistic dolphins with splashes, birds, fish, night bioluminescence
+  models, a pod of dolphins that leap together, seagulls, palms in the wind, an active
+  volcano
 - [`v1.3 — Real sky`](https://github.com/al-xpro/deepfocus/milestone/3): the real sun,
   moon, seasons and weather for the visitor's place (clouds, fog, rain, storms), a
   soundscape that follows the weather, and any sky shared as a link or saved as a

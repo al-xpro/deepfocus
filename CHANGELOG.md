@@ -7,12 +7,13 @@ All notable changes to this project, newest first. Versions follow
 
 ### Added
 
-- A living sea (v1.2, #31–#39): dolphins driven by a pure, tested behavior module (ballistic
-  leaps, porpoising, breaches, breathing, formation by steering, active by day); spray,
-  ripples, wakes and breath where they meet the water; a blue-green glow at night wherever
-  the water is stirred; gulls that circle and dive; a fish school that boils at the surface;
-  a rare whale that blows and breaches; palms on the reef; tap the water to send a ripple
-  and call a dolphin over. `?life` in the URL brings the rare life on quickly.
+- A living sea (v1.2, #31, #32, #34, #38): dolphins driven by a pure, tested behavior
+  module (ballistic leaps, porpoising, breaches, breathing, formation by steering, active
+  by day) that leap together, facing the way they move, in the water the visitor is
+  looking at; spray, foam, ripples and breath where they meet the water; seagulls, never a
+  flock, that cross the view in ones to fours, land on the water to feed, or stand on the
+  rocks for a while; palms on the reef that move in the wind. `?life` in the URL brings
+  the gulls on quickly.
 - Round, twinkling stars; a haze tinted by the sky.
 - Tests (Vitest) in CI.
 - README, license, code of conduct, contributing guide, security policy, support and
@@ -36,14 +37,15 @@ All notable changes to this project, newest first. Versions follow
 
 ### Changed
 
-- Lighter models (#30): from 9.5 MB and 2.26M triangles to 2.6 MB (brotli) and about 165K,
+- Lighter models (#30): from 9.5 MB and 2.26M triangles to 2.8 MB (brotli) and about 146K,
   simplified and compressed with meshopt by `scripts/optimize-models.mjs`. No Draco decoder
   any more.
-- The volcano is far out on the horizon and active: a smoke plume that the scene lights,
-  lava that glows at night. The promontory keeps its texture (simplified to 70K
-  triangles). Material values sit inside their real ranges (the sea stacks no longer read
-  as ice), and the dolphins avoid the models' real footprints. The scene's state is
-  computed once per frame.
+- The volcano is far out on the horizon and active: a small plume of pale steam in the
+  color of the air, and a dim glow over the crater at night. The promontory keeps its
+  texture (70K triangles) with no holes to the sky: the scan's pieces are joined and its
+  near-identical vertices snapped before simplifying. Material values sit inside their real
+  ranges (the sea stacks are light grey by day), and the dolphins avoid the models' real
+  footprints. The scene's state is computed once per frame.
 - Next.js 16.2.1 → 16.4.5 (security fixes).
 - A new interface (v1.1, #12–#18): Apple-style glass in sync with the scene (white by
   day, black at dawn, dusk and night, tinted by the scene's light), DM Sans throughout,

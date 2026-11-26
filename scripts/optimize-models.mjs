@@ -22,18 +22,23 @@ const BUDGETS = {
   // The main landmark keeps its texture: simplified across texture seams
   // ("permissive"), weighing how far UVs and normals move, so it still reads as
   // a wooded island, with no holes. No emissive glow (it lit up at night).
-  "promontory.glb": { triangles: 70_000, texture: 1024, permissive: true, noEmissive: true },
+  "promontory.glb": { triangles: 70_000, texture: 1024, permissive: true, noEmissive: true, doubleSided: true },
   // The reef is low and far: its texture is baked into vertex colors (no seams,
   // a clean simplification, no texture to download).
   "rock_reef.glb": { triangles: 20_000, texture: 0, bake: true },
-  // Active: its lava streaks become an emissive texture that glows at night; and
-  // it's recentered, since its summit sat far from its origin.
-  "volcano.glb": { triangles: 10_000, texture: 512, lava: true, recenter: true },
+  // No emissive glow: lit over its red streaks, the whole cone took a red cast
+  // at night (the scene draws a small crater glow instead). Recentered, since
+  // its summit sat far from its origin.
+  "volcano.glb": { triangles: 10_000, texture: 512, noEmissive: true, recenter: true },
   "cliff_rock.glb": { triangles: 6_000, texture: 512 },
   "group_of_cliff_1.glb": { triangles: 2_500, texture: 512 },
   "group_of_cliff_2.glb": { triangles: 4_000, texture: 512 },
   "dolphin.glb": { triangles: 15_000, texture: 1024 },
-  "blue_whale.glb": { triangles: 8_000, texture: 1024 },
+  // Two palms (ElectroNick, CC BY): fronds as alpha-masked cutouts, not blended,
+  // so they sort correctly; small textures, they stand 900 units away.
+  "palm_trees.glb": { triangles: 12_000, texture: 256, alphaMask: true },
+  // The gull (kenchoo, CC BY-NC-SA): this optimized copy stays CC BY-NC-SA.
+  "seagull.glb": { triangles: 6_000, texture: 512 },
 };
 
 function countTriangles(document) {
@@ -214,8 +219,35 @@ function smoothNormals(document) {
 }
 
 /**
+ * Scans are rarely watertight: neighboring patches meet at vertices a hair apart.
+ * Rounding positions to a grid (a fraction of the model's size) makes them equal,
+ * so welding and the simplifier treat those edges as shared.
+ */
+function snapPositions(document, fraction) {
+  for (const primitive of document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives())) {
+    const attribute = primitive.getAttribute("POSITION");
+    const positions = attribute?.getArray();
+    if (!(positions instanceof Float32Array)) continue;
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < positions.length; i += 3) {
+      for (let k = 0; k < 3; k++) {
+        min[k] = Math.min(min[k], positions[i + k]);
+        max[k] = Math.max(max[k], positions[i + k]);
+      }
+    }
+    const step = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) * fraction;
+    for (let i = 0; i < positions.length; i++) positions[i] = Math.round(positions[i] / step) * step;
+    attribute.setArray(positions);
+  }
+}
+
+/**
  * Simplifies a textured mesh across its texture seams, weighing how far the UVs
- * and normals move, so the result keeps its look without holes.
+ * and normals move, so the result keeps its look. Scanned models come split into
+ * primitives of ~65K vertices; the edges where two pieces meet are open borders,
+ * and each side would collapse its own way, opening cracks (holes to the sky).
+ * Those borders stay locked.
  */
 function simplifyTextured(document, targetTriangles) {
   const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
@@ -246,27 +278,6 @@ function simplifyTextured(document, targetTriangles) {
     }
     indices.setArray(result);
     compactPrimitive(primitive);
-  }
-}
-
-/** The lava: an emissive texture from the base color's red streaks. */
-async function addLavaGlow(document) {
-  for (const material of document.getRoot().listMaterials()) {
-    const base = material.getBaseColorTexture();
-    const image = base?.getImage();
-    if (!image) continue;
-    const { data, info } = await sharp(Buffer.from(image)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    const glow = Buffer.alloc(info.width * info.height * 3);
-    for (let i = 0; i < info.width * info.height; i++) {
-      const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
-      const lava = r > 120 && r > g * 1.45 && r > b * 1.45;
-      glow[i * 3] = lava ? 255 : 0;
-      glow[i * 3 + 1] = lava ? Math.round(110 * (r / 255)) : 0;
-      glow[i * 3 + 2] = lava ? 24 : 0;
-    }
-    const png = await sharp(glow, { raw: { width: info.width, height: info.height, channels: 3 } }).webp({ quality: 85 }).toBuffer();
-    const texture = document.createTexture("lava").setImage(png).setMimeType("image/webp");
-    material.setEmissiveTexture(texture).setEmissiveFactor([1, 1, 1]);
   }
 }
 
@@ -312,6 +323,11 @@ for (const [file, budget] of Object.entries(BUDGETS)) {
     simplifyBaked(document, budget.triangles);
   }
   if (budget.permissive && countTriangles(document) > budget.triangles * 1.1) {
+    // One primitive per material, and near-identical positions snapped together:
+    // the scan's patches then share their edges instead of meeting at open
+    // borders that the simplifier pulls apart into cracks.
+    await document.transform(flatten(), join({ keepNamed: false }));
+    snapPositions(document, 1e-3);
     await document.transform(weld());
     simplifyTextured(document, budget.triangles);
   }
@@ -320,7 +336,16 @@ for (const [file, budget] of Object.entries(BUDGETS)) {
       material.setEmissiveTexture(null).setEmissiveFactor([0, 0, 0]);
     }
   }
-  if (budget.lava) await addLavaGlow(document);
+  // Simplification flips a few triangles; drawn from both sides, they don't show
+  // as holes.
+  if (budget.doubleSided) {
+    for (const material of document.getRoot().listMaterials()) material.setDoubleSided(true);
+  }
+  if (budget.alphaMask) {
+    for (const material of document.getRoot().listMaterials()) {
+      if (material.getAlphaMode() === "BLEND") material.setAlphaMode("MASK").setAlphaCutoff(0.4);
+    }
+  }
 
   // Simplify toward the budget, allowing a little more error each pass if needed.
   for (const error of [0.01, 0.03, 0.08]) {

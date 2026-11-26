@@ -30,8 +30,28 @@ export function daylightOf(snapshot: SceneSnapshot) {
 export const view = { bearing: 0, turning: 1 };
 
 /**
- * `?life` in the URL brings the rare life on quickly (a fish school within
- * seconds, the whale within ten), for reviewing it without a five-minute wait.
+ * `?life` in the URL brings the gulls on quickly (an episode within seconds,
+ * one after another), for reviewing them without waiting.
  */
 export const quickLife =
   typeof window !== "undefined" && new URLSearchParams(window.location.search).has("life");
+
+const HAZE_DAY = new THREE.Color("#d3e2ec");
+const HAZE_NIGHT = new THREE.Color("#060a13");
+const HAZE_DUSK = new THREE.Color("#8a7f8c");
+const scratch = new THREE.Color();
+
+/**
+ * The color of distant air at this moment. Its brightness follows the daylight
+ * (from the sun's height), so it's as dark as the sky whenever the sky is dark,
+ * through dusk, night and dawn; while the sun is low but still up it takes a
+ * muted warm tint. The haze (fog) uses it, and so does anything far away that
+ * should sit in the air, like the volcano's plume.
+ */
+export function hazeColor(snapshot: SceneSnapshot, target: THREE.Color) {
+  const daylight = daylightOf(snapshot);
+  target.copy(HAZE_NIGHT).lerp(HAZE_DAY, Math.pow(daylight, 0.7));
+  const warm = snapshot.twilightFactor * daylight;
+  scratch.setHex(snapshot.sunColorHex).lerp(HAZE_DUSK, 0.55).multiplyScalar(0.35 + 0.65 * daylight);
+  return target.lerp(scratch, warm * 0.6);
+}

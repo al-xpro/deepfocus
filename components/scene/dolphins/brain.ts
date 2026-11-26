@@ -38,8 +38,10 @@ export interface Dolphin {
   leapsLeft: number;
   kind: LeapKind;
   burstFrom: number;
-  /** Set when a visitor taps the water near it: swim there and leap. */
-  curious: boolean;
+  /** The leader this dolphin is leaping with, in sync, or -1. */
+  syncWith: number;
+  /** How many leaps this run started with (porpoising strings several). */
+  runLength: number;
 }
 
 export interface Obstacle {
@@ -57,6 +59,11 @@ export interface World {
   obstacles: Obstacle[];
   minRadius: number;
   maxRadius: number;
+  /**
+   * Where the viewer stands and looks (a bearing, as the headings), when known:
+   * the pod then swims in the water in view, so its leaps are seen.
+   */
+  view?: { bearing: number; x: number; z: number };
 }
 
 export interface DolphinEvents {
@@ -77,9 +84,11 @@ const CRUISE_DEPTH: [number, number] = [-8, -5.5];
 const LAUNCH_DEPTH = -1.2;
 const MAX_TURN = 1.1; // rad/s while cruising
 const OBSTACLE_CLEARANCE = 90;
-const SOCIAL_DISTANCE = 45;
+const SOCIAL_DISTANCE = 16; // dolphins swim close: about a body length
 
 const TAU = Math.PI * 2;
+/** How wide a fan of water in front of the viewer the pod keeps to: ±40°, about the view's width. */
+const VIEW_SPREAD = 1.4;
 
 function between(random: () => number, [min, max]: [number, number]) {
   return min + (max - min) * random();
@@ -100,11 +109,15 @@ function restBeforeLeap(world: World, random: () => number) {
 }
 
 export function chooseTarget(d: Dolphin, world: World, random: () => number) {
+  const view = world.view;
   for (let attempt = 0; attempt < 40; attempt++) {
-    const angle = random() * TAU;
-    const radius = world.minRadius + (world.maxRadius - world.minRadius) * Math.sqrt(random());
-    const x = Math.sin(angle) * radius;
-    const z = -Math.cos(angle) * radius;
+    // Anywhere around, or in the fan of water the viewer is looking at.
+    const angle = view ? view.bearing + (random() - 0.5) * VIEW_SPREAD : random() * TAU;
+    // Even over the radius, not the area: nearer water is visited as often as farther.
+    const radius = world.minRadius + (world.maxRadius - world.minRadius) * random();
+    const x = (view ? view.x : 0) + Math.sin(angle) * radius;
+    const z = (view ? view.z : 0) - Math.cos(angle) * radius;
+    if (view && Math.hypot(x, z) > world.maxRadius) continue;
     const blocked = world.obstacles.some(
       (o) => Math.hypot(x - o.x, z - o.z) < o.radius + OBSTACLE_CLEARANCE
     );
@@ -141,13 +154,15 @@ export function createPod(count: number, world: World, random: () => number): Do
       targetX: 0,
       targetZ: 0,
       retargetAt: 0,
-      nextActionAt: world.time + 3 + random() * 6 + id * 1.5,
+      // The leader leaps first; followers mostly leap with it.
+      nextActionAt: world.time + (id === 0 ? 3 + random() * 5 : 25 + random() * 20),
       breathAt: world.time + 4 + random() * 10,
       wakeAt: 0,
       leapsLeft: 0,
       kind: "leap",
       burstFrom: 0,
-      curious: false,
+      syncWith: -1,
+      runLength: 1,
     };
     chooseTarget(d, world, random);
     pod.push(d);
@@ -163,17 +178,15 @@ function desiredHeading(d: Dolphin, pod: Dolphin[], world: World) {
   dx /= toTarget;
   dz /= toTarget;
 
-  // Formation by steering: followers drift toward the leader's flank.
+  // Formation by steering: followers hold a slot on the leader's flank, a
+  // little behind, so the pod travels (and leaps) together.
   const leader = pod[0];
-  if (d !== leader && leader.phase === "cruise") {
-    const side = d.id % 2 === 0 ? -1 : 1;
-    const slotX = leader.x + Math.cos(leader.heading) * side * 38 - Math.sin(leader.heading) * 26;
-    const slotZ = leader.z + Math.sin(leader.heading) * side * 38 + Math.cos(leader.heading) * 26;
-    const toSlot = Math.hypot(slotX - d.x, slotZ - d.z);
-    if (toSlot < 520 && !d.curious) {
-      dx = dx * 0.25 + ((slotX - d.x) / (toSlot || 1)) * 0.75;
-      dz = dz * 0.25 + ((slotZ - d.z) / (toSlot || 1)) * 0.75;
-    }
+  if (d !== leader) {
+    const [slotX, slotZ] = formationSlot(d, leader);
+    const toSlot = Math.hypot(slotX - d.x, slotZ - d.z) || 1;
+    const pull = Math.min(1, toSlot / 40);
+    dx = dx * (1 - pull) * 0.2 + ((slotX - d.x) / toSlot) * pull + Math.sin(leader.heading) * (1 - pull);
+    dz = dz * (1 - pull) * 0.2 + ((slotZ - d.z) / toSlot) * pull - Math.cos(leader.heading) * (1 - pull);
   }
 
   // Obstacles: felt from where the dolphin is and from where it will be in two
@@ -218,13 +231,26 @@ function desiredHeading(d: Dolphin, pod: Dolphin[], world: World) {
   return headingTo(dx, dz);
 }
 
+/** A follower's place in the pod: alternating sides of the leader, slightly behind. */
+export function formationSlot(d: Dolphin, leader: Dolphin): [number, number] {
+  const side = d.id % 2 === 0 ? -1 : 1;
+  const rank = Math.ceil(d.id / 2);
+  const lateral = side * 24 * rank;
+  const behind = 14 * rank;
+  return [
+    leader.x + Math.cos(leader.heading) * lateral - Math.sin(leader.heading) * behind,
+    leader.z + Math.sin(leader.heading) * lateral + Math.cos(leader.heading) * behind,
+  ];
+}
+
 function steer(d: Dolphin, pod: Dolphin[], world: World, dt: number, maxTurn: number) {
   const wanted = desiredHeading(d, pod, world);
   const delta = wrapAngle(wanted - d.heading);
   const turn = Math.max(-maxTurn, Math.min(maxTurn, delta * 1.6));
   d.turnRate += (turn - d.turnRate) * Math.min(1, dt * 3);
   d.heading = wrapAngle(d.heading + d.turnRate * dt);
-  d.bank += (-d.turnRate * 0.55 - d.bank) * Math.min(1, dt * 3);
+  // Lean into the turn: a right turn (heading rising) lowers the right flank (positive bank).
+  d.bank += (d.turnRate * 0.55 - d.bank) * Math.min(1, dt * 3);
 }
 
 function moveAlongHeading(d: Dolphin, dt: number, obstacles: Obstacle[]) {
@@ -242,9 +268,15 @@ function moveAlongHeading(d: Dolphin, dt: number, obstacles: Obstacle[]) {
   }
 }
 
+function startingLeaps(d: Dolphin) {
+  return d.kind === "porpoise" ? d.runLength : 1;
+}
+
 function startLeap(d: Dolphin, kind: LeapKind, random: () => number) {
   d.kind = kind;
-  d.leapsLeft = kind === "porpoise" ? 3 + Math.floor(random() * 3) : 1;
+  d.runLength = kind === "porpoise" ? 3 + Math.floor(random() * 3) : 1;
+  d.leapsLeft = d.runLength;
+  d.syncWith = -1;
   d.phase = "burst";
   d.phaseTime = 0;
   d.burstFrom = d.y;
@@ -271,14 +303,20 @@ function pickKind(random: () => number): LeapKind {
 
 function cruise(d: Dolphin, pod: Dolphin[], world: World, dt: number, random: () => number, events: DolphinEvents) {
   if (world.time >= d.retargetAt || Math.hypot(d.targetX - d.x, d.targetZ - d.z) < 110) {
-    if (!d.curious) chooseTarget(d, world, random);
+    chooseTarget(d, world, random);
   }
   steer(d, pod, world, dt, MAX_TURN);
 
-  // Speed: cruising pace, matching the leader when in formation.
+  // Speed: cruising pace for the leader; followers catch up with their slot
+  // (faster when behind it, slower when ahead).
   const leader = pod[0];
-  const wantSpeed = d === leader ? (CRUISE_SPEED[0] + CRUISE_SPEED[1]) / 2 : leader.speed * 1.05;
-  d.speed += (wantSpeed - d.speed) * Math.min(1, dt * 0.8);
+  let wantSpeed = (CRUISE_SPEED[0] + CRUISE_SPEED[1]) / 2;
+  if (d !== leader) {
+    const [slotX, slotZ] = formationSlot(d, leader);
+    const along = (slotX - d.x) * Math.sin(d.heading) - (slotZ - d.z) * Math.cos(d.heading);
+    wantSpeed = leader.speed + Math.max(-14, Math.min(34, along * 0.9));
+  }
+  d.speed += (wantSpeed - d.speed) * Math.min(1, dt * 1.6);
   moveAlongHeading(d, dt, world.obstacles);
 
   // Depth: a slow swell around cruising depth, up to the surface to breathe.
@@ -292,12 +330,6 @@ function cruise(d: Dolphin, pod: Dolphin[], world: World, dt: number, random: ()
     d.breathAt = world.time + 12 + random() * 14;
   }
 
-  if (d.curious && Math.hypot(d.targetX - d.x, d.targetZ - d.z) < 90) {
-    d.curious = false;
-    if (canLeap(d, world)) startLeap(d, "leap", random);
-    return;
-  }
-
   if (world.time >= d.nextActionAt) {
     if (!canLeap(d, world)) {
       d.nextActionAt = world.time + 3;
@@ -305,20 +337,34 @@ function cruise(d: Dolphin, pod: Dolphin[], world: World, dt: number, random: ()
     }
     const kind = pickKind(random);
     startLeap(d, kind, random);
-    // Nearby pod-mates join, a beat apart.
-    for (const other of pod) {
-      if (other === d || other.phase !== "cruise") continue;
-      if (Math.hypot(other.x - d.x, other.z - d.z) < 260) {
-        other.nextActionAt = world.time + 0.25 + other.id * 0.2;
+    // The leader takes the pod with it nearly every time: followers close to
+    // their slot leap at the same moment, the same leap, side by side.
+    if (d === leader && random() < 0.9) {
+      for (const other of pod) {
+        if (other === d || other.phase !== "cruise") continue;
+        const [slotX, slotZ] = formationSlot(other, d);
+        if (Math.hypot(other.x - slotX, other.z - slotZ) > 70) continue;
+        startLeap(other, kind, random);
+        other.runLength = d.runLength;
+        other.leapsLeft = d.leapsLeft;
+        other.syncWith = d.id;
+        other.burstFrom = other.y;
       }
     }
   }
 }
 
 function burst(d: Dolphin, pod: Dolphin[], world: World, dt: number, events: DolphinEvents) {
-  const duration = d.kind === "porpoise" && d.burstFrom > -3 ? PORPOISE_BURST_TIME : BURST_TIME;
-  steer(d, pod, world, dt, MAX_TURN * 0.35);
-  d.speed += (BURST_SPEED - d.speed) * Math.min(1, dt * 2.4);
+  const leader = d.syncWith >= 0 ? pod[d.syncWith] : null;
+  const duration = d.kind === "porpoise" && d.leapsLeft < startingLeaps(d) ? PORPOISE_BURST_TIME : BURST_TIME;
+  if (leader) {
+    // In sync: parallel to the leader, at its speed.
+    d.heading += Math.atan2(Math.sin(leader.heading - d.heading), Math.cos(leader.heading - d.heading)) * Math.min(1, dt * 4);
+    d.speed += (leader.speed - d.speed) * Math.min(1, dt * 4);
+  } else {
+    steer(d, pod, world, dt, MAX_TURN * 0.35);
+    d.speed += (BURST_SPEED - d.speed) * Math.min(1, dt * 2.4);
+  }
   moveAlongHeading(d, dt, world.obstacles);
   const t = Math.min(1, d.phaseTime / duration);
   const ease = t * t * (3 - 2 * t);
@@ -372,7 +418,10 @@ function dive(d: Dolphin, pod: Dolphin[], world: World, dt: number, random: () =
     d.phase = "cruise";
     d.phaseTime = 0;
     d.vy = 0;
-    d.nextActionAt = world.time + restBeforeLeap(world, random);
+    // Followers leap with the leader; on their own only now and then.
+    const follower = d !== pod[0];
+    d.nextActionAt = world.time + restBeforeLeap(world, random) * (follower ? 3.5 : 1);
+    d.syncWith = -1;
   }
 }
 
@@ -404,25 +453,4 @@ export function stepDolphin(
 /** Advances the whole pod by `dt` seconds; `world.time` should already include it. */
 export function stepPod(pod: Dolphin[], world: World, dt: number, random: () => number, events: DolphinEvents = {}) {
   for (const d of pod) stepDolphin(d, pod, world, dt, random, events);
-}
-
-/** A visitor tapped the water: the nearest cruising dolphin within reach comes to look. */
-export function attract(pod: Dolphin[], x: number, z: number, reach = 900): Dolphin | null {
-  let best: Dolphin | null = null;
-  let bestDistance = reach;
-  for (const d of pod) {
-    if (d.phase !== "cruise") continue;
-    const distance = Math.hypot(d.x - x, d.z - z);
-    if (distance < bestDistance) {
-      best = d;
-      bestDistance = distance;
-    }
-  }
-  if (best) {
-    best.targetX = x;
-    best.targetZ = z;
-    best.curious = true;
-    best.retargetAt = Infinity;
-  }
-  return best;
 }
