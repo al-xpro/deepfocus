@@ -4,6 +4,10 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Short screens (a laptop with a docked browser, a phone held sideways): tighter
+   vertical spacing, so the whole page fits down to the scene's 34rem minimum. */
+@custom-variant short (@media (max-height: 700px));
+
 /* ── Tokens ──────────────────────────────────────────────────────────────── */
 
 @theme inline {
