@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
+import { loaderToneScript } from "./loaderTone";
 
 // One calm, soft family for everything: titles at normal or medium, body light.
 const dmSans = DM_Sans({
@@ -32,7 +33,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={dmSans.variable} data-glass="dark">
+    <html lang="en" className={dmSans.variable} data-glass="dark" suppressHydrationWarning>
+      <head>
+        {/* Colors the loading panel for the visitor's time before the first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: loaderToneScript }} />
+      </head>
       <body className="font-sans font-light antialiased">{children}</body>
     </html>
   );

@@ -42,6 +42,8 @@ public/models/          glTF models (third-party, see CREDITS.md)
   portfolio site. Prefer CC0 and CC BY; never add NonCommercial (NC) or "editorial use"
   assets. List every one in `CREDITS.md`: title, author, source URL, license, and what was
   changed.
+- **Nature only:** the scene shows the sea, the sky, the land and its flora and fauna.
+  No buildings, boats, lighthouses or other man-made objects.
 - **Models:** process every model with glTF-Transform (simplify, compress, WebP or KTX2
   textures) before adding it, and state its triangle count and size in the pull request.
   Distant objects need a few percent of a source model's triangles.

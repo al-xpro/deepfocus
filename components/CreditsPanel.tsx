@@ -1,22 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ScrollShadow, useScrollShadows } from "./useScrollShadows";
+import { useScrollFade } from "./useScrollFade";
 import GlassPanel from "./GlassPanel";
 import { CREDITS } from "./credits";
 
 const link = "underline decoration-current/30 underline-offset-2 hover:decoration-current";
 
-/** The list scrolls inside a short window, with shadows where there's more. */
+/** The list scrolls inside a short window; the text fades where there's more. */
 function ScrollArea({ children }: { children: React.ReactNode }) {
-  const { scrollRef, canScrollUp, canScrollDown } = useScrollShadows();
+  const { scrollRef, fadeStyle } = useScrollFade();
   return (
-    <div className="relative -mx-5">
-      <ScrollShadow edge="top" visible={canScrollUp} />
-      <div ref={scrollRef} className="max-h-[min(38vh,15rem)] overflow-y-auto overscroll-contain px-5">
-        {children}
-      </div>
-      <ScrollShadow edge="bottom" visible={canScrollDown} />
+    <div ref={scrollRef} style={fadeStyle} className="max-h-[min(38vh,15rem)] overflow-y-auto overscroll-contain">
+      {children}
     </div>
   );
 }
