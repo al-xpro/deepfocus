@@ -20,7 +20,7 @@ All notable changes to this project, newest first. Versions follow
 - Focus mode (`F`) and focus sessions of 15, 30 or 60 minutes, shown as a progress bar
   (the countdown fades after a moment and returns on hover).
 - A self-hosted CC0 ocean ambience, played through Web Audio, loaded on demand.
-- A credits panel with scroll shadows; "Drag to look around", once; the view turns
+- A credits panel whose text fades at the edges while there's more to scroll; "Drag to look around", once; the view turns
   slowly and endlessly, pausing while dragged.
 - A 404 page ("Lost at sea") over the night sea, and `llms.txt` for agents.
 - Reduced motion: no entrance animations, a fade instead of the particles, no shooting
@@ -33,8 +33,8 @@ All notable changes to this project, newest first. Versions follow
   day, black at dawn, dusk and night, tinted by the scene's light), DM Sans throughout,
   ultra-minimal copy, one keyboard focus ring, text contrast AA at every time of day, and
   the DeepFocus name and a new mark everywhere.
-- A new loading panel: the mark and a thin line over ink, until the whole scene has
-  arrived.
+- A new loading panel, "Loading the ocean", on a soft gradient in the colors of the
+  visitor's time (set before the first paint), until the whole scene has arrived.
 - The scene fills the page: at least the screen and 34rem, so a phone held sideways
   scrolls a whole landscape instead of squashing it.
 - The time choice (live or custom) is remembered, and the 404 page shows it too.

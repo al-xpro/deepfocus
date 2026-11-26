@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
-import { ScrollShadow, useScrollShadows } from "./useScrollShadows";
+import { useScrollFade } from "./useScrollFade";
 
 // A bottom sheet for phones, following the field drawer on alxpro.com:
 // drag anywhere (past a small threshold) to pull it down, the sheet travels
@@ -46,7 +46,7 @@ export default function Drawer({
   // The portal needs document.body: false on the server and during hydration.
   const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
-  const { scrollRef, canScrollUp, canScrollDown } = useScrollShadows();
+  const { scrollRef, fadeStyle } = useScrollFade();
   const titleId = useId();
 
   const y = useMotionValue(0);
@@ -178,15 +178,12 @@ export default function Drawer({
             <h2 id={titleId} className="shrink-0 px-5 pb-4 text-[0.6875rem] font-normal uppercase tracking-[0.22em] text-on-glass-muted">
               {title}
             </h2>
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              <ScrollShadow edge="top" visible={canScrollUp} />
-              <div
-                ref={scrollRef}
-                className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-5 pb-[max(2rem,env(safe-area-inset-bottom))]"
-              >
-                {children}
-              </div>
-              <ScrollShadow edge="bottom" visible={canScrollDown} />
+            <div
+              ref={scrollRef}
+              style={fadeStyle}
+              className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-5 pb-[max(2rem,env(safe-area-inset-bottom))]"
+            >
+              {children}
             </div>
           </motion.div>
         </div>
