@@ -40,11 +40,16 @@ whose sky, light and water follow the visitor's clock.
   sessions shown as a progress bar; they survive a reload and end with a soft bell
 - The view turns slowly and endlessly; drag to look around
 - A 404 page on the open sea at night, and an `llms.txt` for agents
+- The visitor's real sky: the sun, the moon and its phase, and the weather where they
+  are (clouds, overcast, fog, rain, storms with lightning, snow), from the approximate
+  place of their connection, with no prompt, or a precise position if they share it;
+  sunrise, noon and sunset presets for their place, and any condition to preview
 - An ocean ambience (a CC0 field recording, self-hosted) that loads only when the
   visitor turns it on
 - A waitlist that says it's a concept: the address dissolves into particles and nothing
   is sent
-- No third-party requests: fonts, sound and the Draco decoder are self-hosted
+- No third-party requests from the page: fonts and sound are self-hosted, and the
+  weather comes through our own route; the place is approximate and never stored
 
 ## Tech stack
 
@@ -60,20 +65,23 @@ whose sky, light and water follow the visitor's clock.
 
 ```text
 app/                    layout, metadata, the one page
+app/api/sky/            the visitor's place and weather: validated, cached, rate-limited
 components/             the page, dock, glass panels, focus mode, sound, credits
+  skyStore.ts           the live sky: place, weather, a condition chosen to preview
 components/scene/       the 3D scene
   OceanScene.tsx        sky, environment map, stars, constellations, comets, moon, sun
   Ocean.tsx             the water
   SceneEncounters.tsx   lights; mounts the landscape, the dolphins, the gulls, the water effects
   sceneConfig.ts        day, twilight and night values for every scene parameter
-  timeUtils.ts          sun position and the per-frame scene snapshot
-  sceneParams.ts        the time override
+  timeUtils.ts          sun and moon (position, phase), sun times, the scene snapshot
+  sceneParams.ts        the time override, the place, the weather target
+  weather.ts            the weather model and its effect on the scene (tested)
   sceneTone.ts          publishes the scene's light to the page (the glass follows it)
   sceneFrame.ts         the scene's state, computed once per frame and read everywhere
   landscape.tsx         where each model sits, the volcano and its plume, the palms
   dolphins/             the dolphins: a pure, tested behavior module and its renderer
   life/Gulls.tsx        seagulls: fly-bys, feeding on the water, perching on the rocks
-  fx/                   water contact: spray, foam, ripples
+  fx/                   water contact (spray, foam, ripples); rain, snow, lightning
 public/models/          glTF models (see CREDITS.md)
 ```
 

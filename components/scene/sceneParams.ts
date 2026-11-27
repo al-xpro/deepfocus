@@ -1,11 +1,16 @@
+import { CLEAR, type Weather } from "./weather"
+
 export interface SceneLocation {
   latitude: number
   longitude: number
 }
 
 export const sceneParams = {
+  /** The visitor's place (their real sun and moon), or null for the reference sky. */
   location: null as SceneLocation | null,
   timeOverrideHour: null as number | null,
+  /** The weather the scene fades toward: live, or a chosen condition. */
+  weather: { ...CLEAR } as Weather,
 }
 
 export function setSceneTimeOverride(hour: number | null) {

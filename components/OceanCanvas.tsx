@@ -8,6 +8,7 @@ import * as THREE from "three";
 import OceanScene from "./scene/OceanScene";
 import { setSceneTimeOverride } from "./scene/sceneParams";
 import { motionPrefs } from "./scene/motionPrefs";
+import { startSky } from "./skyStore";
 
 function SceneLoadReporter({
   onProgressChange,
@@ -64,6 +65,11 @@ export default function OceanCanvas({
   useEffect(() => {
     motionPrefs.reduced = Boolean(reduceMotion);
   }, [reduceMotion]);
+
+  // The visitor's real sun, moon and weather (from our own route; no prompt).
+  useEffect(() => {
+    startSky();
+  }, []);
 
   return (
     <Canvas

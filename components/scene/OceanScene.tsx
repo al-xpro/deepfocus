@@ -11,7 +11,7 @@ import Ocean from "./Ocean";
 import SceneEncounters from "./SceneEncounters";
 import { type SceneSnapshot, vecFromSpherical } from "./timeUtils";
 import { publishSceneTone } from "./sceneTone";
-import { daylightOf, getFrameSnapshot, hazeColor, updateFrameSnapshot, view } from "./sceneFrame";
+import { daylightOf, getFrameSnapshot, getWeather, hazeColor, hazeDensity, lightning, updateFrameSnapshot, view } from "./sceneFrame";
 
 const SKY_OBJECT_LAYER = 1;
 
@@ -484,6 +484,26 @@ function applySkyUniforms(
     uniforms["cloudDensity"].value = scene.cloudDensity;
     uniforms["cloudElevation"].value = scene.cloudElevation;
   }
+  if (uniforms["overcast"] !== undefined) uniforms["overcast"].value = scene.overcast;
+}
+
+/**
+ * An overcast deck for the sky shader: past half cover its clouds still leave
+ * blue gaps and a clear band at the horizon. This blends the whole sky toward a
+ * grey of its own brightness (still brighter toward the sun), a little dimmed.
+ */
+function addOvercast(sky: SkyImpl) {
+  const material = sky.material as THREE.ShaderMaterial;
+  material.uniforms.overcast = { value: 0 };
+  material.fragmentShader = material.fragmentShader
+    .replace("uniform float cloudCoverage;", "uniform float cloudCoverage;\nuniform float overcast;")
+    .replace(
+      "gl_FragColor = vec4( texColor, 1.0 );",
+      `float skyLuminance = dot( texColor, vec3( 0.2126, 0.7152, 0.0722 ) );
+      texColor = mix( texColor, vec3( skyLuminance ) * vec3( 0.95, 0.97, 1.0 ) * 0.82, overcast );
+      gl_FragColor = vec4( texColor, 1.0 );`
+    );
+  material.needsUpdate = true;
 }
 
 function roundToStep(value: number, step: number) {
@@ -498,8 +518,10 @@ function buildEnvironmentKey(scene: SceneSnapshot) {
     roundToStep(scene.turbidity, 0.05).toFixed(2),
     roundToStep(scene.mieCoefficient, 0.0001).toFixed(4),
     roundToStep(scene.mieG, 0.01).toFixed(2),
-    roundToStep(scene.cloudCoverage, 0.01).toFixed(2),
-    roundToStep(scene.cloudDensity, 0.01).toFixed(2),
+    // Coarse steps: a weather fade shouldn't rebuild the environment every frame.
+    roundToStep(scene.cloudCoverage, 0.05).toFixed(2),
+    roundToStep(scene.cloudDensity, 0.05).toFixed(2),
+    roundToStep(scene.overcast, 0.05).toFixed(2),
   ].join("|");
 }
 
@@ -604,32 +626,50 @@ function createStarGlowTexture() {
   return texture;
 }
 
-function createMoonCrescentTexture() {
+/**
+ * The moon's face for a phase, drawn per pixel: a sphere lit from the right
+ * (the sprite is turned so that side faces the sun), its dark side faintly lit
+ * by the Earth, its limb a little darker. Redrawn only when the phase changes.
+ */
+function createMoonPhaseArt() {
   const size = 256;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const context = canvas.getContext("2d");
-
-  if (!context) {
-    return new THREE.Texture();
-  }
-
-  context.clearRect(0, 0, size, size);
-  context.fillStyle = "rgba(238, 236, 221, 0.98)";
-  context.beginPath();
-  context.arc(size * 0.48, size * 0.5, size * 0.23, 0, Math.PI * 2);
-  context.fill();
-
-  context.globalCompositeOperation = "destination-out";
-  context.beginPath();
-  context.arc(size * 0.58, size * 0.46, size * 0.23, 0, Math.PI * 2);
-  context.fill();
-  context.globalCompositeOperation = "source-over";
-
   const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-  return texture;
+  let drawn = -1;
+  return {
+    texture,
+    draw(phase: number) {
+      if (!context || Math.abs(phase - drawn) < 0.004) return;
+      drawn = phase;
+      const angle = 2 * Math.PI * Math.min(phase, 1 - phase);
+      const lx = Math.sin(angle);
+      const lz = -Math.cos(angle);
+      const image = context.createImageData(size, size);
+      const radius = size * 0.23;
+      for (let py = 0; py < size; py++) {
+        for (let px = 0; px < size; px++) {
+          const x = (px - size * 0.5) / radius;
+          const y = (py - size * 0.5) / radius;
+          const r2 = x * x + y * y;
+          if (r2 > 1.02) continue;
+          const z = Math.sqrt(Math.max(0, 1 - r2));
+          const lit = THREE.MathUtils.smoothstep(x * lx + z * lz, -0.05, 0.05);
+          const edge = 1 - THREE.MathUtils.smoothstep(r2, 0.96, 1.02);
+          const brightness = (0.78 + 0.22 * z) * (0.07 + 0.93 * lit);
+          const k = (py * size + px) * 4;
+          image.data[k] = 238 * brightness;
+          image.data[k + 1] = 236 * brightness;
+          image.data[k + 2] = 221 * brightness;
+          image.data[k + 3] = 255 * edge * (0.12 + 0.88 * lit);
+        }
+      }
+      context.putImageData(image, 0, 0);
+      texture.needsUpdate = true;
+    },
+  };
 }
 
 function createMoonGlowTexture() {
@@ -971,9 +1011,12 @@ function Moon() {
   const crescentRef = useRef<THREE.Sprite>(null);
   const crescentMatRef = useRef<THREE.SpriteMaterial>(null);
   const glowMatRef = useRef<THREE.SpriteMaterial>(null);
-  const crescentTexture = useMemo(() => createMoonCrescentTexture(), []);
+  const phaseArt = useMemo(() => createMoonPhaseArt(), []);
+  const crescentTexture = phaseArt.texture;
   const glowTexture = useMemo(() => createMoonGlowTexture(), []);
   const _pos = useRef(new THREE.Vector3());
+  const _sun = useRef(new THREE.Vector3());
+  const _moon = useRef(new THREE.Vector3());
 
   useEffect(() => {
     return () => {
@@ -982,7 +1025,7 @@ function Moon() {
     };
   }, [crescentTexture, glowTexture]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!groupRef.current || !crescentRef.current || !crescentMatRef.current || !glowMatRef.current)
       return;
     const safeDelta = Math.min(delta, 1 / 30);
@@ -990,13 +1033,20 @@ function Moon() {
     vecFromSpherical(scene.moonElev, scene.moonAz, _pos.current);
     groupRef.current.position.copy(_pos.current).multiplyScalar(4_200);
 
-    const moonVisibility = THREE.MathUtils.clamp(scene.moonOpacity * 1.05, 0.8, 1);
+    phaseArt.draw(scene.moonPhase);
+    // Clouds hide the moon.
+    const moonVisibility = THREE.MathUtils.clamp(scene.moonOpacity * 1.05, 0.8, 1) * (1 - 0.92 * getWeather().cloud);
     const glowVisibility = THREE.MathUtils.clamp(
       scene.nightFactor * 0.75 + scene.twilightFactor * 0.08,
       0,
       1
     );
-    const orientation = THREE.MathUtils.degToRad(scene.sunAz - scene.moonAz + 90);
+    // Turn the lit side toward the sun: the sun's direction, seen from the moon,
+    // in the camera's view (wherever the sun is, even below the horizon).
+    vecFromSpherical(scene.sunElev, scene.sunAz, _sun.current).transformDirection(state.camera.matrixWorldInverse);
+    _moon.current.copy(_pos.current).transformDirection(state.camera.matrixWorldInverse);
+    _sun.current.addScaledVector(_moon.current, -_sun.current.dot(_moon.current));
+    const orientation = Math.atan2(_sun.current.y, _sun.current.x);
 
     crescentRef.current.scale.setScalar(150 + glowVisibility * 50);
     crescentMatRef.current.rotation = orientation;
@@ -1007,7 +1057,8 @@ function Moon() {
     );
     glowMatRef.current.opacity = THREE.MathUtils.lerp(
       glowMatRef.current.opacity,
-      glowVisibility * 40,
+      // A soft halo: the texture's own gradient, not a saturated disc.
+      glowVisibility * 0.45,
       safeDelta * 1
     );
     groupRef.current.visible = glowVisibility > 0.02;
@@ -1038,6 +1089,7 @@ function Moon() {
           opacity={0}
           depthWrite={false}
           depthTest={false}
+          toneMapped={false}
         />
       </sprite>
     </group>
@@ -1177,8 +1229,8 @@ function LookControls() {
 
 /** Computes the scene's state once per frame, before anything reads it. */
 function SceneClock() {
-  useFrame(() => {
-    updateFrameSnapshot();
+  useFrame((_, delta) => {
+    updateFrameSnapshot(delta);
   }, -10);
   return null;
 }
@@ -1203,7 +1255,9 @@ function ViewTracker() {
 function Haze() {
   const fog = useRef<THREE.FogExp2>(null);
   useFrame(() => {
-    if (fog.current) hazeColor(getFrameSnapshot(), fog.current.color);
+    if (!fog.current) return;
+    hazeColor(getFrameSnapshot(), fog.current.color);
+    fog.current.density = hazeDensity();
   });
   return <fogExp2 ref={fog} attach="fog" args={["#d3e2ec", 0.00006]} />;
 }
@@ -1214,6 +1268,7 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
   const sky = useMemo(() => {
     const s = new SkyImpl();
     s.scale.setScalar(10_000);
+    addOvercast(s);
     const u = (s.material as THREE.ShaderMaterial).uniforms;
     const scene = getFrameSnapshot();
     u["mieCoefficient"].value = scene.mieCoefficient;
@@ -1236,6 +1291,7 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
   const envSky = useMemo(() => {
     const s = new SkyImpl();
     s.scale.setScalar(10_000);
+    addOvercast(s);
     return s;
   }, []);
   const pmremGenerator = useMemo(() => new THREE.PMREMGenerator(gl), [gl]);
@@ -1297,7 +1353,7 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
       setSceneEnvironment(threeScene, envTargetRef.current.texture);
     }
 
-    state.gl.toneMappingExposure = scene.exposure;
+    state.gl.toneMappingExposure = scene.exposure * (1 + lightning.flash * 0.9);
     publishSceneTone(scene);
   });
 

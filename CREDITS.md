@@ -38,6 +38,12 @@ CC BY-NC-SA 4.0.
 The water effects (spray, foam, ripples) and the volcano's plume and crater glow are built
 in code for this project.
 
+## Data
+
+- The weather for the visitor's place: [Weather data by Open-Meteo.com](https://open-meteo.com/),
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), fetched by our own server
+  route (`app/api/sky/route.ts`), never by the visitor's browser.
+
 ## Textures
 
 - `public/textures/waternormals.jpg`: the water normal map from the
@@ -57,7 +63,7 @@ in code for this project.
 - The sky and the water are three.js's `Sky` and `Water` objects from
   [`three/examples/jsm`](https://github.com/mrdoob/three.js/tree/dev/examples/jsm),
   [MIT License](https://github.com/mrdoob/three.js/blob/dev/LICENSE).
-- The sun-position formulas in `components/scene/timeUtils.ts` follow
+- The sun and moon formulas (position, phase) in `components/scene/timeUtils.ts` follow
   [SunCalc](https://github.com/mourner/suncalc) by Vladimir Agafonkin,
   [BSD 2-Clause License](https://github.com/mourner/suncalc/blob/master/LICENSE).
 - `public/draco/`: Google's [Draco](https://github.com/google/draco) decoder, copied

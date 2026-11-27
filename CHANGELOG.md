@@ -7,6 +7,14 @@ All notable changes to this project, newest first. Versions follow
 
 ### Added
 
+- A real sky (v1.3): the sun, the moon and its phase for the visitor's place, and the
+  weather there now (clouds, an overcast deck, fog, rain, storms with lightning, snow),
+  fading in over a few seconds. The place comes from the connection (no prompt), the
+  time zone, or a precise position the visitor chooses to share; our own route
+  (`/api/sky`) validates it, rounds it to about 11 km, asks Open-Meteo (cached ten
+  minutes) and is rate-limited. The time panel shows the place, the weather and the
+  real sunrise, noon and sunset, and previews any condition. Daylight now counts from
+  30° of sun, so a low winter sun reads as day, not as a long sunset.
 - A living sea (v1.2, #31, #32, #34, #38): dolphins driven by a pure, tested behavior
   module (ballistic leaps, porpoising, breaches, breathing, formation by steering, active
   by day) that leap together, facing the way they move, in the water the visitor is
