@@ -42,10 +42,6 @@ export interface SceneSnapshot extends SunMoonPosition {
   sunHaloScale: number;
   sunHaloOpacity: number;
   sunGlowColorHex: number;
-  bloomStrength: number;
-  bloomRadius: number;
-  bloomThreshold: number;
-  bloomSmoothing: number;
   cloudScale: number;
   cloudSpeed: number;
   cloudCoverage: number;
@@ -371,23 +367,7 @@ export function getSceneSnapshot(
     nightFactor
   );
 
-  const bloomStrength = blendScalar(
-    sceneConfig.bloom.dayStrength,
-    sceneConfig.bloom.twilightStrength,
-    sceneConfig.bloom.nightStrength,
-    noonFactor,
-    twilightFactor,
-    nightFactor
-  );
 
-  const bloomRadius = blendScalar(
-    sceneConfig.bloom.dayRadius,
-    sceneConfig.bloom.twilightRadius,
-    sceneConfig.bloom.nightRadius,
-    noonFactor,
-    twilightFactor,
-    nightFactor
-  );
 
   const cloudSpeed = blendScalar(
     sceneConfig.clouds.daySpeed,
@@ -480,10 +460,6 @@ export function getSceneSnapshot(
       twilightFactor,
       nightFactor
     ),
-    bloomStrength,
-    bloomRadius,
-    bloomThreshold: sceneConfig.bloom.threshold,
-    bloomSmoothing: sceneConfig.bloom.smoothing,
     cloudScale: sceneConfig.clouds.scale,
     cloudSpeed,
     cloudCoverage,

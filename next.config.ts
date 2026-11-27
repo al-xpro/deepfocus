@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['three', 'lil-gui'],  
+  transpilePackages: ["three"],
 };
 
 export default nextConfig;

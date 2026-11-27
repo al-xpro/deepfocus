@@ -31,8 +31,11 @@ whose sky, light and water follow the visitor's clock.
   tinted by the scene's light
 - A night sky drawn from canvas textures, with no image downloads: about 3,700 stars,
   constellation lines, shooting stars, a moon and a sun glow
-- Three dolphins with a behavior system: they steer around rocks and each other, rise to
-  the surface, leap, and sometimes jump together in a pod
+- A living sea: a pod of dolphins that cruise, breathe at the surface and leap together on
+  real ballistic arcs (porpoising, the occasional breach), with spray, foam and ripples
+  in the water itself; seagulls by day, a flock passing high or a few landing on the water
+  to feed or on the rocks; palms on a small island moving in the wind; and a distant active volcano with a plume of steam
+  and a dim crater glow at night
 - Focus mode (`F`): the page steps aside for the scene, with 15, 30 or 60-minute focus
   sessions shown as a progress bar; they survive a reload and end with a soft bell
 - The view turns slowly and endlessly; drag to look around
@@ -48,8 +51,8 @@ whose sky, light and water follow the visitor's clock.
 - [Next.js 16](https://nextjs.org) (App Router, statically prerendered) and React 19
 - TypeScript and Tailwind CSS 4
 - [React Three Fiber](https://r3f.docs.pmnd.rs), [drei](https://drei.docs.pmnd.rs) and
-  [three.js](https://threejs.org): the `Sky` and `Water` objects, glTF models with Draco
-  geometry and WebP textures
+  [three.js](https://threejs.org): the `Sky` and `Water` objects, glTF models simplified
+  and compressed with meshopt (`scripts/optimize-models.mjs`)
 - Radix primitives for the panels, Framer Motion for the interface
 - DM Sans, self-hosted through `next/font`
 
@@ -61,11 +64,16 @@ components/             the page, dock, glass panels, focus mode, sound, credits
 components/scene/       the 3D scene
   OceanScene.tsx        sky, environment map, stars, constellations, comets, moon, sun
   Ocean.tsx             the water
-  SceneEncounters.tsx   lights, coastal models, dolphins and their behavior
+  SceneEncounters.tsx   lights; mounts the landscape, the dolphins, the gulls, the water effects
   sceneConfig.ts        day, twilight and night values for every scene parameter
   timeUtils.ts          sun position and the per-frame scene snapshot
   sceneParams.ts        the time override
   sceneTone.ts          publishes the scene's light to the page (the glass follows it)
+  sceneFrame.ts         the scene's state, computed once per frame and read everywhere
+  landscape.tsx         where each model sits, the volcano and its plume, the palms
+  dolphins/             the dolphins: a pure, tested behavior module and its renderer
+  life/Gulls.tsx        seagulls: fly-bys, feeding on the water, perching on the rocks
+  fx/                   water contact: spray, foam, ripples
 public/models/          glTF models (see CREDITS.md)
 ```
 
@@ -75,10 +83,12 @@ noon, twilight and night. Every value in `sceneConfig.ts` has a day, a twilight 
 night version, and the snapshot blends them, so the sky, lights, water, stars and
 exposure always agree.
 
-**The dolphins steer.** Each one picks targets through curved via-points, avoids the
-rocks and the other dolphins, and moves through four phases: cruise, surface approach,
-airborne, and dive. A dolphin about to leap can invite the others; those nearby join and
-jump in sync.
+**The dolphins think on their own.** Their behavior is a pure module
+(`components/scene/dolphins/brain.ts`) with tests: they cruise under the surface, steer
+around the rocks' real footprints and each other, keep formation by steering, and surface
+to breathe. A leap is a burst of speed, then a ballistic arc (y = v₀t − ½gt²) to a planned
+height, then a dive; pod-mates nearby join a beat apart. They leap often by day, rarely at
+night, and never under reduced motion.
 
 ## Getting started
 
@@ -89,6 +99,7 @@ npm install
 npm run dev         # http://localhost:3000
 npm run typecheck
 npm run lint
+npm test            # the dolphins' behavior (Vitest)
 npm run build
 ```
 
@@ -125,7 +136,8 @@ shows the work in progress.
   minimalist interface, one focus style, real dialogs, focus sessions, licensed
   self-hosted sound
 - [`v1.2 — Living ocean`](https://github.com/al-xpro/deepfocus/milestone/2): lighter
-  models, ballistic dolphins with splashes, birds, fish, night bioluminescence
+  models, a pod of dolphins that leap together, seagulls, palms in the wind, an active
+  volcano
 - [`v1.3 — Real sky`](https://github.com/al-xpro/deepfocus/milestone/3): the real sun,
   moon, seasons and weather for the visitor's place (clouds, fog, rain, storms), a
   soundscape that follows the weather, and any sky shared as a link or saved as a

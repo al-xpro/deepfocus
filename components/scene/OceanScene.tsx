@@ -9,9 +9,9 @@ import { Sky as SkyImpl } from "three/examples/jsm/objects/Sky.js";
 import * as THREE from "three";
 import Ocean from "./Ocean";
 import SceneEncounters from "./SceneEncounters";
-import { getSceneDate, sceneParams } from "./sceneParams";
-import { getSceneSnapshot, type SceneSnapshot, vecFromSpherical } from "./timeUtils";
+import { type SceneSnapshot, vecFromSpherical } from "./timeUtils";
 import { publishSceneTone } from "./sceneTone";
+import { daylightOf, getFrameSnapshot, hazeColor, updateFrameSnapshot, view } from "./sceneFrame";
 
 const SKY_OBJECT_LAYER = 1;
 
@@ -295,21 +295,6 @@ const CONSTELLATION_SETS = [
   },
   {
     stars: [
-      { elevation: 16.4, azimuth: 204.2 },
-      { elevation: 17.8, azimuth: 210.2 },
-      { elevation: 15.6, azimuth: 199.8 },
-      { elevation: 15.7, azimuth: 196.2 },
-      { elevation: 13.1, azimuth: 207.5 },
-    ],
-    segments: [
-      [0, 1],
-      [0, 2],
-      [2, 3],
-      [0, 4],
-    ],
-  },
-  {
-    stars: [
       { elevation: 12.7, azimuth: 269.3 },
       { elevation: 14.4, azimuth: 262.8 },
       { elevation: 10.3, azimuth: 266 },
@@ -522,6 +507,36 @@ function setSceneEnvironment(scene: THREE.Scene, texture: THREE.Texture | null) 
   scene.environment = texture;
 }
 
+/**
+ * Night light for the environment map. Below the horizon the sky shader turns a
+ * dark maroon, and every model takes the environment as its ambient light, so
+ * after sunset the volcano, the rocks and the animals all took a red-brown cast.
+ * This dome lives only in the scene the environment map is rendered from (the
+ * visible sky is untouched) and fades in to a dim moonlit blue as the daylight
+ * goes. PMREM renders with a far plane of 100, hence the small radius.
+ */
+const NIGHT_ENVIRONMENT = new THREE.Color("#1c2638");
+
+function createNightDome() {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(50, 32, 16),
+    new THREE.MeshBasicMaterial({
+      color: NIGHT_ENVIRONMENT,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      fog: false,
+      toneMapped: false,
+    })
+  );
+}
+
+function updateNightDome(dome: THREE.Mesh, snapshot: SceneSnapshot) {
+  const night = 1 - daylightOf(snapshot);
+  (dome.material as THREE.MeshBasicMaterial).opacity = THREE.MathUtils.smoothstep(night, 0.15, 0.85) * 0.95;
+}
+
 function createGlowTexture() {
   const size = 256;
   const canvas = document.createElement("canvas");
@@ -665,73 +680,81 @@ function CelestialLayer({ children }: { children: ReactNode }) {
   return <group ref={groupRef}>{children}</group>;
 }
 
-function Starfield() {
-  const baseMatRef = useRef<THREE.PointsMaterial>(null);
-  const brightMatRef = useRef<THREE.PointsMaterial>(null);
-  const basePositions = useMemo(() => createStarPositions(3_500, 1_337), []);
-  const brightPositions = useMemo(() => createStarPositions(240, 3_211, 0.42), []);
+const starVertex = /* glsl */ `
+  uniform float uSize;
+  uniform float uTime;
+  uniform float uTwinkle;
+  varying float vTwinkle;
+  void main() {
+    // Each star twinkles at its own rhythm, from a hash of its position.
+    float phase = fract(sin(dot(position.xyz, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+    vTwinkle = 1.0 - uTwinkle * (0.5 + 0.5 * sin(uTime * (1.2 + phase * 2.6) + phase * 6.2832));
+    gl_PointSize = uSize * (0.8 + phase * 0.5);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const starFragment = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying float vTwinkle;
+  void main() {
+    // A soft round disc, brightest at the center: no square points.
+    float d = length(gl_PointCoord - 0.5);
+    float core = smoothstep(0.5, 0.0, d);
+    gl_FragColor = vec4(uColor, pow(core, 1.8) * uOpacity * vTwinkle);
+  }
+`;
+
+function StarPoints({ positions, color, size }: { positions: Float32Array; color: string; size: number }) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const uniforms = useMemo(
+    () => ({
+      uColor: { value: new THREE.Color(color) },
+      uOpacity: { value: 0 },
+      uSize: { value: size },
+      uTime: { value: 0 },
+      uTwinkle: { value: 0.35 },
+    }),
+    [color, size]
+  );
+  const reduceMotion = useReducedMotion();
 
   useFrame((state, delta) => {
-    if (!baseMatRef.current || !brightMatRef.current) return;
-    const safeDelta = Math.min(delta, 1 / 30);
-    const scene = getSceneSnapshot(getSceneDate(), sceneParams.location);
-    const glowFactor = THREE.MathUtils.clamp(scene.starsOpacity * 1.2, 0, 1);
-    const shimmer = 0.94 + Math.sin(state.clock.elapsedTime * 0.9) * 0.11;
-    const brightPulse = 0.9 + Math.sin(state.clock.elapsedTime * 2.8) * 0.24;
-
-    baseMatRef.current.opacity = THREE.MathUtils.lerp(
-      baseMatRef.current.opacity,
-      Math.min(1, glowFactor * 1.28 * shimmer),
-      safeDelta * 1.7
-    );
-    baseMatRef.current.size = THREE.MathUtils.lerp(
-      baseMatRef.current.size,
-      2.3 + glowFactor * 1.15,
-      safeDelta * 1.5
-    );
-
-    brightMatRef.current.opacity = THREE.MathUtils.lerp(
-      brightMatRef.current.opacity,
-      Math.min(1, glowFactor * 1.32 * brightPulse),
-      safeDelta * 2.4
-    );
-    brightMatRef.current.size = THREE.MathUtils.lerp(
-      brightMatRef.current.size,
-      4 + glowFactor * 2.4,
-      safeDelta * 2
-    );
+    const material = pointsRef.current?.material as THREE.ShaderMaterial | undefined;
+    if (!material) return;
+    const scene = getFrameSnapshot();
+    const glow = THREE.MathUtils.clamp(scene.starsOpacity * 1.25, 0, 1);
+    const u = material.uniforms;
+    u.uOpacity.value = THREE.MathUtils.lerp(u.uOpacity.value, glow, Math.min(1, delta * 1.8));
+    u.uTime.value = state.clock.elapsedTime;
+    u.uTwinkle.value = reduceMotion ? 0.08 : 0.35;
+    u.uSize.value = (size + glow * size * 0.5) * state.viewport.dpr;
   });
 
   return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <shaderMaterial
+        uniforms={uniforms}
+        vertexShader={starVertex}
+        fragmentShader={starFragment}
+        transparent
+        depthWrite={false}
+      />
+    </points>
+  );
+}
+
+function Starfield() {
+  const basePositions = useMemo(() => createStarPositions(3_500, 1_337), []);
+  const brightPositions = useMemo(() => createStarPositions(240, 3_211, 0.42), []);
+  return (
     <>
-      <points>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[basePositions, 3]} />
-        </bufferGeometry>
-        <pointsMaterial
-          ref={baseMatRef}
-          size={1.8}
-          color="#dde8ff"
-          transparent
-          opacity={0}
-          sizeAttenuation={false}
-          depthWrite={false}
-        />
-      </points>
-      <points>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[brightPositions, 3]} />
-        </bufferGeometry>
-        <pointsMaterial
-          ref={brightMatRef}
-          size={2.8}
-          color="#f4f8ff"
-          transparent
-          opacity={0}
-          sizeAttenuation={false}
-          depthWrite={false}
-        />
-      </points>
+      <StarPoints positions={basePositions} color="#dde8ff" size={2.6} />
+      <StarPoints positions={brightPositions} color="#f4f8ff" size={4.4} />
     </>
   );
 }
@@ -747,7 +770,7 @@ function Constellations() {
     }
 
     const safeDelta = Math.min(delta, 1 / 30);
-    const scene = getSceneSnapshot(getSceneDate(), sceneParams.location);
+    const scene = getFrameSnapshot();
     const starVisibility = THREE.MathUtils.clamp(scene.starsOpacity * 0.7, 0, 1);
     const pulse = 0.95 + Math.sin(state.clock.elapsedTime * 1.9) * 0.1;
     const constellationVisibility = THREE.MathUtils.clamp(scene.starsOpacity * 0.72, 0, 1);
@@ -775,6 +798,7 @@ function Constellations() {
           <bufferAttribute attach="attributes-position" args={[constellationData.lines, 3]} />
         </bufferGeometry>
         <lineBasicMaterial
+          fog={false}
           ref={lineMatRef}
           color="#7fe6ff"
           transparent
@@ -788,6 +812,7 @@ function Constellations() {
           <bufferAttribute attach="attributes-position" args={[constellationData.stars, 3]} />
         </bufferGeometry>
         <pointsMaterial
+          fog={false}
           ref={pointMatRef}
           color="#dfffff"
           size={0.95}
@@ -843,7 +868,7 @@ function Comet({
       return;
     }
 
-    const scene = getSceneSnapshot(getSceneDate(), sceneParams.location);
+    const scene = getFrameSnapshot();
     const nightVisibility = THREE.MathUtils.clamp(scene.starsOpacity * 1.5, 0, 1);
     const path = pathRef.current ?? createRandomCometPath(random);
     pathRef.current = path;
@@ -898,6 +923,7 @@ function Comet({
           />
         </bufferGeometry>
         <lineBasicMaterial
+          fog={false}
           ref={trailMatRef}
           color="#eff8ff"
           transparent
@@ -907,6 +933,7 @@ function Comet({
       </line>
       <sprite ref={headRef}>
         <spriteMaterial
+          fog={false}
           ref={headMatRef}
           map={glowTexture}
           color="#ffffff"
@@ -959,7 +986,7 @@ function Moon() {
     if (!groupRef.current || !crescentRef.current || !crescentMatRef.current || !glowMatRef.current)
       return;
     const safeDelta = Math.min(delta, 1 / 30);
-    const scene = getSceneSnapshot(getSceneDate(), sceneParams.location);
+    const scene = getFrameSnapshot();
     vecFromSpherical(scene.moonElev, scene.moonAz, _pos.current);
     groupRef.current.position.copy(_pos.current).multiplyScalar(4_200);
 
@@ -990,6 +1017,7 @@ function Moon() {
     <group ref={groupRef} visible={false} renderOrder={8}>
       <sprite scale={[280, 280, 1]}>
         <spriteMaterial
+          fog={false}
           ref={glowMatRef}
           map={glowTexture}
           color="#cdc398"
@@ -1002,6 +1030,7 @@ function Moon() {
       </sprite>
       <sprite ref={crescentRef}>
         <spriteMaterial
+          fog={false}
           ref={crescentMatRef}
           map={crescentTexture}
           color="#ebe7d6"
@@ -1033,7 +1062,7 @@ function SunGlow() {
   useFrame((_, delta) => {
     if (!groupRef.current || !haloMatRef.current || !coreMatRef.current) return;
     const safeDelta = Math.min(delta, 1 / 30);
-    const scene = getSceneSnapshot(getSceneDate(), sceneParams.location);
+    const scene = getFrameSnapshot();
     vecFromSpherical(scene.sunElev, scene.sunAz, _pos.current);
     groupRef.current.position.copy(_pos.current).multiplyScalar(4_350);
 
@@ -1069,6 +1098,7 @@ function SunGlow() {
     <group ref={groupRef} renderOrder={10}>
       <sprite ref={haloRef}>
         <spriteMaterial
+          fog={false}
           ref={haloMatRef}
           map={glowTexture}
           color="#fff1c8"
@@ -1081,6 +1111,7 @@ function SunGlow() {
       </sprite>
       <sprite ref={coreRef}>
         <spriteMaterial
+          fog={false}
           ref={coreMatRef}
           map={glowTexture}
           color="#fff7dc"
@@ -1144,6 +1175,39 @@ function LookControls() {
   );
 }
 
+/** Computes the scene's state once per frame, before anything reads it. */
+function SceneClock() {
+  useFrame(() => {
+    updateFrameSnapshot();
+  }, -10);
+  return null;
+}
+
+/** Where the view looks and which way it turns, for life that wants to be seen. */
+function ViewTracker() {
+  const direction = useRef(new THREE.Vector3());
+  useFrame((state) => {
+    state.camera.getWorldDirection(direction.current);
+    const bearing = Math.atan2(direction.current.x, -direction.current.z);
+    const change = Math.atan2(Math.sin(bearing - view.bearing), Math.cos(bearing - view.bearing));
+    if (Math.abs(change) > 1e-4) view.turning = change > 0 ? 1 : -1;
+    view.bearing = bearing;
+  });
+  return null;
+}
+
+/**
+ * Haze tinted by the sky, thickening with distance: the far volcano and islands
+ * sit in the air instead of on it. The sky and the sea keep their own colors.
+ */
+function Haze() {
+  const fog = useRef<THREE.FogExp2>(null);
+  useFrame(() => {
+    if (fog.current) hazeColor(getFrameSnapshot(), fog.current.color);
+  });
+  return <fogExp2 ref={fog} attach="fog" args={["#d3e2ec", 0.00006]} />;
+}
+
 export default function OceanScene({ showModels = true }: { showModels?: boolean }) {
   const { gl, scene: threeScene, camera } = useThree();
 
@@ -1151,7 +1215,7 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
     const s = new SkyImpl();
     s.scale.setScalar(10_000);
     const u = (s.material as THREE.ShaderMaterial).uniforms;
-    const scene = getSceneSnapshot(getSceneDate(), sceneParams.location);
+    const scene = getFrameSnapshot();
     u["mieCoefficient"].value = scene.mieCoefficient;
     u["turbidity"].value = scene.turbidity;
     u["rayleigh"].value = scene.rayleigh;
@@ -1175,11 +1239,13 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
     return s;
   }, []);
   const pmremGenerator = useMemo(() => new THREE.PMREMGenerator(gl), [gl]);
+  const nightDome = useMemo(() => createNightDome(), []);
   const envScene = useMemo(() => {
     const s = new THREE.Scene();
     s.add(envSky);
+    s.add(nightDome);
     return s;
-  }, [envSky]);
+  }, [envSky, nightDome]);
   const envTargetRef = useRef<THREE.WebGLRenderTarget | null>(null);
   const envKeyRef = useRef("");
   const skyTimeRef = useRef(0);
@@ -1194,8 +1260,16 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
     };
   }, [camera, pmremGenerator]);
 
+  useEffect(
+    () => () => {
+      nightDome.geometry.dispose();
+      (nightDome.material as THREE.Material).dispose();
+    },
+    [nightDome]
+  );
+
   useFrame((state, delta) => {
-    const scene = getSceneSnapshot(getSceneDate(), sceneParams.location);
+    const scene = getFrameSnapshot();
     const safeDelta = Math.min(delta, 1 / 30);
     const envKey = buildEnvironmentKey(scene);
 
@@ -1217,6 +1291,7 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
 
     if (envKey !== envKeyRef.current || !envTargetRef.current) {
       envKeyRef.current = envKey;
+      updateNightDome(nightDome, scene);
       envTargetRef.current?.dispose();
       envTargetRef.current = pmremGenerator.fromScene(envScene);
       setSceneEnvironment(threeScene, envTargetRef.current.texture);
@@ -1228,6 +1303,9 @@ export default function OceanScene({ showModels = true }: { showModels?: boolean
 
   return (
     <>
+      <SceneClock />
+      <ViewTracker />
+      <Haze />
       <primitive object={sky} />
       <SunGlow />
       <CelestialLayer>

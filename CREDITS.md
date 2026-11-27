@@ -6,9 +6,17 @@ license.
 
 ## 3D models
 
-All from [Sketchfab](https://sketchfab.com). Changes to every model: geometry compressed
-with Draco and textures converted to WebP (glTF-Transform); scaled and placed in the
-scene; material color, roughness and environment intensity adjusted at runtime.
+All from [Sketchfab](https://sketchfab.com). Changes to every model, made by
+`scripts/optimize-models.mjs` (glTF-Transform and meshoptimizer): simplified to a triangle
+budget, geometry compressed with meshopt, textures resized and converted to WebP; then
+scaled and placed in the scene, with material color, roughness and environment intensity
+adjusted at runtime. Further changes: the reef has its texture baked into vertex colors (no
+texture); the promontory's scan pieces are joined and their near-identical vertices snapped
+together before simplifying (closing the gaps between scan patches), its emissive color is
+removed and it's drawn double-sided; the volcano is recentered and its emissive color
+removed; the palms' fronds are alpha-tested instead of blended; the palms' fronds and
+trunks sway in a wind added in a shader, and the seagull's wings and legs are posed (folded,
+tucked, lowered) on top of its own animation.
 
 | File | Model | Author | License |
 | --- | --- | --- | --- |
@@ -18,11 +26,17 @@ scene; material color, roughness and environment intensity adjusted at runtime.
 | `public/models/group_of_cliff_1.glb` | ["Cliffs"](https://sketchfab.com/3d-models/cliffs-14fe5023840146179c8515093e88fae0) | [DJMaesen](https://sketchfab.com/bumstrum) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/group_of_cliff_2.glb` | ["Cliff"](https://sketchfab.com/3d-models/cliff-082da1166a814c6e9c9e6c1b38159e4e) | [DJMaesen](https://sketchfab.com/bumstrum) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/volcano.glb` | ["Volcano"](https://sketchfab.com/3d-models/volcano-0aa90a20d5cb47de90ec5d1bcd5aff31) | [k3ddesign](https://sketchfab.com/K3DDesign) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
-| `public/models/blue_whale.glb` | ["Blue whale"](https://sketchfab.com/3d-models/blue-whale-a7969d8046754fa1b90f989ef451df1c) | [dannzjs](https://sketchfab.com/dannzjs) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/palm_trees.glb` | ["Palm Trees"](https://sketchfab.com/3d-models/palm-trees-20f8a8d5054b4191afb7cf3270dbd586) | [ElectroNick](https://sketchfab.com/ElectroNick) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/dolphin.glb` | ["Model 61A - Bottlenose Dolphin"](https://sketchfab.com/3d-models/model-61a-bottlenose-dolphin-2ec20f15b08c4c2fb16e4df5d837b893) | [DigitalLife3D](https://sketchfab.com/DigitalLife3D) | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
-| `public/models/turtle.glb` | ["Model 72B - Juvenile Green Sea Turtle"](https://sketchfab.com/3d-models/model-72b-juvenile-green-sea-turtle-c90a930f8b2a4cc8bc516742a0df01d9) | [DigitalLife3D](https://sketchfab.com/DigitalLife3D) | [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) |
+| `public/models/seagull.glb` | ["Seagull"](https://sketchfab.com/3d-models/seagull-1d3b3cea037f4fb3bc9fbd72013bb94a) | [kenchoo](https://sketchfab.com/kenchoo) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 
-`blue_whale.glb` and `turtle.glb` are in the repository but not used by the scene yet.
+The dolphin and the seagull are under NonCommercial licenses: DeepFocus is a non-commercial
+concept (no ads, sales or sign-ups). The seagull's license is also ShareAlike: the modified
+copy in this repository, `public/models/seagull.glb`, is shared under the same license,
+CC BY-NC-SA 4.0.
+
+The water effects (spray, foam, ripples) and the volcano's plume and crater glow are built
+in code for this project.
 
 ## Textures
 
