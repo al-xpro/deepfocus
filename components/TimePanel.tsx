@@ -1,7 +1,34 @@
 "use client";
 
-import { formatMinutes } from "./sceneClock";
+import { useMemo } from "react";
+import { formatMinutes, useMinuteClock } from "./sceneClock";
 import Digits from "./Digits";
+import { getSunTimes } from "./scene/timeUtils";
+import { CONDITION_LABELS, conditionOf } from "./scene/weather";
+import { chooseWeather, locate, useSky, type SkyState, type WeatherChoice } from "./skyStore";
+
+const WEATHER: Array<{ choice: WeatherChoice; label: string; name: string }> = [
+  { choice: "live", label: "Live", name: "Live weather" },
+  { choice: "clear", label: "Clear", name: "Clear" },
+  { choice: "partly-cloudy", label: "Partly", name: "Partly cloudy" },
+  { choice: "cloudy", label: "Cloudy", name: "Cloudy" },
+  { choice: "fog", label: "Fog", name: "Fog" },
+  { choice: "rain", label: "Rain", name: "Rain" },
+  { choice: "storm", label: "Storm", name: "Storm" },
+  { choice: "snow", label: "Snow", name: "Snow" },
+];
+
+/** Where the sky is from, and the weather there now. */
+function placeLine(sky: SkyState) {
+  if (sky.status === "idle" || sky.status === "loading") return "Finding your sky…";
+  if (!sky.place) return "Reference sky";
+  const parts = [sky.place.city ?? (sky.place.source === "precise" ? "Your location" : "Your area")];
+  if (sky.live) parts.push(CONDITION_LABELS[conditionOf(sky.live)]);
+  if (sky.temperature !== null) parts.push(`${Math.round(sky.temperature)}°`);
+  return parts.join(" · ");
+}
+
+const round5 = (minutes: number) => (Math.round(minutes / 5) * 5) % 1440;
 
 const PRESETS = [
   { label: "Sunrise", minutes: 5 * 60 },
@@ -28,8 +55,10 @@ function Moon() {
 }
 
 /**
- * The time panel: live or custom, a 24-hour scrubber, and four presets. Every
- * change goes straight to the scene; the panel holds no state of its own.
+ * The time panel: live or custom, a 24-hour scrubber, four presets (the real
+ * sunrise, noon and sunset for the visitor's place, when known), and the
+ * weather: live, or any condition to preview. Every change goes straight to
+ * the scene; the panel holds no state of its own.
  */
 export default function TimePanel({
   value,
@@ -44,6 +73,19 @@ export default function TimePanel({
 }) {
   const live = value === null;
   const setMinutes = (next: number) => onChange(next / 60);
+  const sky = useSky();
+  const now = useMinuteClock();
+  const day = now ? now.toDateString() : "";
+  const presets = useMemo(() => {
+    if (!sky.place || !day) return PRESETS;
+    const times = getSunTimes(new Date(day), sky.place);
+    return [
+      { label: "Sunrise", minutes: times.sunrise === null ? PRESETS[0].minutes : round5(times.sunrise) },
+      { label: "Noon", minutes: round5(times.noon) },
+      { label: "Sunset", minutes: times.sunset === null ? PRESETS[2].minutes : round5(times.sunset) },
+      PRESETS[3],
+    ];
+  }, [sky.place, day]);
 
   const segment = (active: boolean) =>
     `h-9 cursor-pointer rounded-full text-sm font-normal transition-colors duration-(--duration-fast) ${
@@ -87,7 +129,7 @@ export default function TimePanel({
       </div>
 
       <div className="grid grid-cols-4 gap-1.5">
-        {PRESETS.map((preset) => {
+        {presets.map((preset) => {
           const active = !live && minutes === preset.minutes;
           return (
             <button
@@ -106,6 +148,41 @@ export default function TimePanel({
             </button>
           );
         })}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex min-h-5 select-none items-baseline justify-between gap-3 px-0.5 text-[0.75rem] font-light text-on-glass-muted">
+          <span aria-live="polite">{placeLine(sky)}</span>
+          {sky.place?.source !== "precise" && (
+            <button
+              type="button"
+              onClick={locate}
+              disabled={sky.locating}
+              className="shrink-0 cursor-pointer rounded-full font-normal text-on-glass transition-colors duration-(--duration-fast) disabled:cursor-default disabled:text-on-glass-muted"
+            >
+              {sky.locating ? "Locating…" : "Use my location"}
+            </button>
+          )}
+        </div>
+        <div role="group" aria-label="Weather" className="grid grid-cols-4 gap-1">
+          {WEATHER.map((item) => {
+            const active = sky.choice === item.choice;
+            return (
+              <button
+                key={item.choice}
+                type="button"
+                aria-pressed={active}
+                aria-label={item.name}
+                onClick={() => chooseWeather(item.choice)}
+                className={`h-8 cursor-pointer rounded-full text-[0.75rem] font-normal transition-colors duration-(--duration-fast) ${
+                  active ? "glass-selected" : "glass-control bg-(--glass-well) text-on-glass-muted"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

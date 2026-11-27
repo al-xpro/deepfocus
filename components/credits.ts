@@ -81,6 +81,18 @@ export const CREDITS: Array<{ group: string; items: Credit[] }> = [
     ],
   },
   {
+    group: "Data",
+    items: [
+      {
+        title: "Weather data",
+        author: "Open-Meteo.com",
+        source: "https://open-meteo.com/",
+        license: "CC BY 4.0",
+        licenseUrl: CC_BY,
+      },
+    ],
+  },
+  {
     group: "Sound",
     items: [
       {

@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { waterFx } from "../fx/waterPools";
 import { OBSTACLES } from "../landscape";
-import { getFrameSnapshot, quickLife, view } from "../sceneFrame";
+import { getFrameSnapshot, getWeather, quickLife, view } from "../sceneFrame";
 
 // Seagulls (kenchoo's "Seagull", CC BY-NC-SA: CREDITS.md). One episode at a
 // time, between sunrise and sunset.
@@ -438,7 +438,10 @@ export default function Gulls({ rocks }: { rocks: THREE.Object3D[] }) {
     const dt = Math.min(delta, 0.05);
     const time = state.clock.elapsedTime;
     const s = scratch.current;
-    const sunUp = getFrameSnapshot().sunElev > 1;
+    // Out between sunrise and sunset, and not in rain, snow, storms or thick fog.
+    const weather = getWeather();
+    const sunUp =
+      getFrameSnapshot().sunElev > 1 && weather.rain < 0.2 && weather.snow < 0.2 && weather.storm < 0.3 && weather.fog < 0.6;
     eye.set(state.camera.position.x, 0, state.camera.position.z);
 
     // One episode at a time, by day: the next may begin once the last is flying off.

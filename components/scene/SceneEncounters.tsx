@@ -4,10 +4,11 @@ import { Suspense, useCallback, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { vecFromSpherical } from "./timeUtils";
-import { getFrameSnapshot } from "./sceneFrame";
+import { getFrameSnapshot, getWeather, lightning } from "./sceneFrame";
 import { addSolidCore, Landmark, PLACEMENTS, ReefPalms, Volcano } from "./landscape";
 import Dolphins from "./dolphins/Dolphins";
 import WaterFx from "./fx/WaterFx";
+import Precipitation from "./fx/Precipitation";
 import Gulls from "./life/Gulls";
 
 // Everything that lives in the scene besides the sky and the sea: the light,
@@ -41,7 +42,9 @@ function EncounterLightRig() {
     const scene = getFrameSnapshot();
     // Direct sunlight fades as the sun reaches the horizon: in twilight the
     // models are lit by the sky, not by a sun that has already set.
-    const sunUp = THREE.MathUtils.smoothstep(scene.sunElev, -3, 6);
+    // Clouds take the sun's direct light and spread it into the sky's.
+    const weather = getWeather();
+    const sunUp = THREE.MathUtils.smoothstep(scene.sunElev, -3, 6) * (1 - 0.82 * weather.cloud);
 
     vecFromSpherical(Math.max(scene.sunElev, 4), scene.sunAz, _sunVector.current);
     sunLightRef.current.position.copy(_sunVector.current).multiplyScalar(360);
@@ -61,7 +64,8 @@ function EncounterLightRig() {
     fillLightRef.current.position.set(220, 145, 260);
     fillLightRef.current.target = targetRef.current;
     fillLightRef.current.color.setHex(scene.lightColorHex);
-    fillLightRef.current.intensity = THREE.MathUtils.lerp(0.18, 0.92 * (0.35 + 0.65 * sunUp), 1 - scene.nightFactor);
+    fillLightRef.current.intensity =
+      THREE.MathUtils.lerp(0.18, 0.92 * (0.35 + 0.65 * sunUp), 1 - scene.nightFactor) * (1 - 0.3 * weather.cloud);
 
     vecFromSpherical(Math.max(scene.moonElev, 6), scene.moonAz, _moonVector.current);
     moonLightRef.current.position.copy(_moonVector.current).multiplyScalar(340);
@@ -69,16 +73,14 @@ function EncounterLightRig() {
     moonLightRef.current.color.setHex(0xbfd6ff);
     moonLightRef.current.intensity = THREE.MathUtils.lerp(0.06, 0.46, scene.nightFactor);
 
-    hemiLightRef.current.intensity = THREE.MathUtils.lerp(0.24, 0.54, 1 - scene.nightFactor * 0.5);
+    hemiLightRef.current.intensity =
+      THREE.MathUtils.lerp(0.24, 0.54, 1 - scene.nightFactor * 0.5) * (1 + 0.35 * weather.cloud) + lightning.flash * 2.5;
     hemiLightRef.current.color.setHex(0xe1ecff);
     hemiLightRef.current.groundColor.setHex(0x092236);
 
     ambientLightRef.current.color.setHex(scene.lightColorHex);
-    ambientLightRef.current.intensity = THREE.MathUtils.lerp(
-      0.12,
-      0.34,
-      1 - scene.nightFactor * 0.4
-    );
+    ambientLightRef.current.intensity =
+      THREE.MathUtils.lerp(0.12, 0.34, 1 - scene.nightFactor * 0.4) + lightning.flash * 1.2;
   });
 
   return (
@@ -138,6 +140,7 @@ export default function SceneEncounters() {
         <Gulls rocks={rocks} />
       </Arrival>
       <WaterFx />
+      <Precipitation />
     </>
   );
 }

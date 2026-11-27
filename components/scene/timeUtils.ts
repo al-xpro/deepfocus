@@ -16,6 +16,10 @@ export interface SunMoonPosition {
   sunAz: number;
   moonElev: number;
   moonAz: number;
+  /** The moon's lit fraction, 0 (new) to 1 (full). */
+  moonFraction: number;
+  /** Where the moon is in its cycle: 0 new, 0.25 first quarter, 0.5 full, 0.75 last quarter. */
+  moonPhase: number;
 }
 
 export interface SceneSnapshot extends SunMoonPosition {
@@ -47,6 +51,8 @@ export interface SceneSnapshot extends SunMoonPosition {
   cloudCoverage: number;
   cloudDensity: number;
   cloudElevation: number;
+  /** 0 … 1: a grey cloud deck over the whole sky (set by the weather). */
+  overcast: number;
 }
 
 export function getHours(date: Date = new Date()): number {
@@ -213,6 +219,83 @@ function getReferenceSunPosition(hours: number): { elevation: number; azimuth: n
   };
 }
 
+/** The moon's geocentric ecliptic coordinates (SunCalc). */
+function moonCoords(days: number) {
+  const rad = Math.PI / 180;
+  const L = rad * (218.316 + 13.176396 * days);
+  const M = rad * (134.963 + 13.064993 * days);
+  const F = rad * (93.272 + 13.22935 * days);
+  const longitude = L + rad * 6.289 * Math.sin(M);
+  const latitude = rad * 5.128 * Math.sin(F);
+  return {
+    ra: rightAscension(longitude, latitude),
+    dec: declination(longitude, latitude),
+    distance: 385001 - 20905 * Math.cos(M),
+  };
+}
+
+/** Where the moon stands for a place and a moment (SunCalc), in degrees. */
+function getMoonPosition(date: Date, location: SceneLocation): { elevation: number; azimuth: number } {
+  const longitudeRad = THREE.MathUtils.degToRad(-location.longitude);
+  const latitudeRad = THREE.MathUtils.degToRad(location.latitude);
+  const days = toDays(date);
+  const moon = moonCoords(days);
+  const hourAngle = siderealTime(days, longitudeRad) - moon.ra;
+  const elevation = Math.asin(
+    Math.sin(latitudeRad) * Math.sin(moon.dec) + Math.cos(latitudeRad) * Math.cos(moon.dec) * Math.cos(hourAngle)
+  );
+  const azimuth = Math.atan2(
+    Math.sin(hourAngle),
+    Math.cos(hourAngle) * Math.sin(latitudeRad) - Math.tan(moon.dec) * Math.cos(latitudeRad)
+  );
+  return { elevation: THREE.MathUtils.radToDeg(elevation), azimuth: wrap360(THREE.MathUtils.radToDeg(azimuth) + 180) };
+}
+
+/** The moon's phase for a moment, anywhere (SunCalc's illumination). */
+export function getMoonIllumination(date: Date): { fraction: number; phase: number } {
+  const days = toDays(date);
+  const lambda = eclipticLongitude(solarMeanAnomaly(days));
+  const sun = { ra: rightAscension(lambda, 0), dec: declination(lambda, 0) };
+  const moon = moonCoords(days);
+  const sunDistance = 149598000;
+  const phi = Math.acos(
+    Math.sin(sun.dec) * Math.sin(moon.dec) + Math.cos(sun.dec) * Math.cos(moon.dec) * Math.cos(sun.ra - moon.ra)
+  );
+  const inc = Math.atan2(sunDistance * Math.sin(phi), moon.distance - sunDistance * Math.cos(phi));
+  const angle = Math.atan2(
+    Math.cos(sun.dec) * Math.sin(sun.ra - moon.ra),
+    Math.sin(sun.dec) * Math.cos(moon.dec) - Math.cos(sun.dec) * Math.sin(moon.dec) * Math.cos(sun.ra - moon.ra)
+  );
+  return { fraction: (1 + Math.cos(inc)) / 2, phase: 0.5 + (0.5 * inc * (angle < 0 ? -1 : 1)) / Math.PI };
+}
+
+/**
+ * Sunrise, solar noon and sunset for a place on a day, in minutes since local
+ * midnight (null when the sun doesn't rise or set that day). Found by stepping
+ * through the day, not from a closed formula: simple, and exact to a minute.
+ */
+export function getSunTimes(day: Date, location: SceneLocation) {
+  const start = new Date(day);
+  start.setHours(0, 0, 0, 0);
+  const at = (minute: number) => getSolarPosition(new Date(start.getTime() + minute * 60_000), location).elevation;
+  let sunrise: number | null = null;
+  let sunset: number | null = null;
+  let noon = 0;
+  let highest = -Infinity;
+  let previous = at(0);
+  for (let minute = 1; minute < 1440; minute++) {
+    const elevation = at(minute);
+    if (previous < 0 && elevation >= 0 && sunrise === null) sunrise = minute;
+    if (previous >= 0 && elevation < 0) sunset = minute;
+    if (elevation > highest) {
+      highest = elevation;
+      noon = minute;
+    }
+    previous = elevation;
+  }
+  return { sunrise, noon, sunset };
+}
+
 function getReferenceMoonPosition(hours: number): { elevation: number; azimuth: number } {
   const sunLikeMoon = getReferenceSunPosition((hours + 12) % 24);
   return {
@@ -244,11 +327,14 @@ export function getSceneSnapshot(
 ): SceneSnapshot {
   const hours = getHours(date);
   const sun = location ? getSolarPosition(date, location) : getReferenceSunPosition(hours);
-  const moon = getReferenceMoonPosition(hours);
+  const moon = location ? getMoonPosition(date, location) : getReferenceMoonPosition(hours);
+  const illumination = location ? getMoonIllumination(date) : { fraction: 0.3, phase: 0.2 };
 
   const twilightFactor = 1 - smoothstep(0, 16, Math.abs(sun.elevation));
   const nightFactor = clamp((-sun.elevation - 2) / 16, 0, 1);
-  const noonFactor = smoothstep(12, 75, sun.elevation);
+  // Full daylight from 30°: a real winter sun at high latitude may peak lower
+  // than the reference sun (85°), and the whole day read as a sunset.
+  const noonFactor = smoothstep(8, 30, sun.elevation);
 
   const rayleigh = blendScalar(
     sceneConfig.sky.dayRayleigh,
@@ -409,6 +495,8 @@ export function getSceneSnapshot(
     sunAz: sun.azimuth,
     moonElev: moon.elevation,
     moonAz: moon.azimuth,
+    moonFraction: illumination.fraction,
+    moonPhase: illumination.phase,
     rayleigh,
     turbidity,
     mieCoefficient,
@@ -465,6 +553,7 @@ export function getSceneSnapshot(
     cloudCoverage,
     cloudDensity,
     cloudElevation: sceneConfig.clouds.elevation,
+    overcast: 0,
   };
 }
 

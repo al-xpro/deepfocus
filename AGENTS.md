@@ -25,7 +25,9 @@ Run typecheck, lint and build before every commit. CI runs the same three.
 
 ```text
 app/                    layout, metadata, the one page
+app/api/sky/            the visitor's place and weather (validated, cached, rate-limited)
 components/             interface: page, panels, sound, loader
+  skyStore.ts           the live sky: place, weather, the condition chosen to preview
 components/scene/       the 3D scene (React Three Fiber)
   OceanScene.tsx        sky, environment map, haze, stars, moon, sun, camera
   Ocean.tsx             the water
@@ -33,11 +35,12 @@ components/scene/       the 3D scene (React Three Fiber)
   landscape.tsx         placed models: promontory, reef and its palms, rocks, the volcano
   dolphins/             the pod: brain.ts (pure behavior, tested) and Dolphins.tsx
   life/Gulls.tsx        seagulls: fly-bys, feeding on the water, perching on the rocks
-  fx/                   water contact: spray, foam, ripples (pools and their renderer)
+  fx/                   water contact (spray, foam, ripples); rain, snow, lightning
   sceneFrame.ts         the snapshot for this frame, where the view looks, the haze color
   sceneConfig.ts        day, twilight and night values for every scene parameter
   timeUtils.ts          sun position and the scene snapshot for a moment
-  sceneParams.ts        the time override (and, later, place and weather)
+  sceneParams.ts        the time override, the place, the weather the scene fades toward
+  weather.ts            the weather model: observations and presets to intensities (tested)
 public/models/          glTF models (third-party, see CREDITS.md)
 ```
 
@@ -60,7 +63,9 @@ public/models/          glTF models (third-party, see CREDITS.md)
   arrays), and no React state updates per frame. Read the scene snapshot; don't recompute
   it per component.
 - **No third-party requests before the visitor acts:** no trackers, no embeds, no CDN
-  scripts on load. Self-host fonts, decoders and media.
+  scripts on load. Self-host fonts, decoders and media. The page talks only to our own
+  `/api/sky`; the server asks the weather service. The visitor's place is approximate,
+  used only for their sky, and never stored.
 - **Accessibility:** one focus style on `:focus-visible`; every control has a name that
   says what it does; panels close on Escape and return focus; respect
   `prefers-reduced-motion`; text contrast AA in day and night states.
