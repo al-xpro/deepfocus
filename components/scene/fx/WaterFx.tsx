@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { MAX_FOAM, MAX_PARTICLES, MAX_RINGS, foam, particles, rings, stepWaterFx } from "./waterPools";
-import { daylightOf, getFrameSnapshot } from "../sceneFrame";
+import { MAX_FOAM, MAX_PARTICLES, foam, particles, stepWaterFx } from "./waterPools";
+import { getFrameSnapshot, hazeColor } from "../sceneFrame";
 
-// Draws the water-contact pools: droplets and mist, foam patches lying on the
-// water, and faint ripples. Everything takes the scene's light, so a splash at
-// night is a dim, moonlit one.
+// Draws the water-contact pools: droplets and mist, and foam patches lying on
+// the water (the ripples are in the water's own shader, Ocean.tsx). All of it is water: transparent, in the sea's own
+// color mixed with the air's, a little lighter, never white. At night it's as
+// dark as the sea.
 
 const WATER_Y = 0.3;
-const WHITE = new THREE.Color(0xffffff);
 
 const particleVertex = /* glsl */ `
   attribute float aSize;
@@ -37,7 +37,7 @@ const particleFragment = /* glsl */ `
     float d = length(gl_PointCoord - 0.5);
     // Droplets: small, fairly crisp; mist: soft and faint.
     float edge = vKind > 0.5 ? smoothstep(0.5, 0.0, d) : smoothstep(0.5, 0.25, d);
-    float alpha = vAlpha * edge * (vKind > 0.5 ? 0.38 : 0.85);
+    float alpha = vAlpha * edge * (vKind > 0.5 ? 0.14 : 0.3);
     gl_FragColor = vec4(uColor, alpha);
   }
 `;
@@ -80,13 +80,13 @@ function hideAll(mesh: THREE.InstancedMesh, count: number) {
 export default function WaterFx() {
   const pointsRef = useRef<THREE.Points>(null);
   const foamRef = useRef<THREE.InstancedMesh>(null);
-  const ringsRef = useRef<THREE.InstancedMesh>(null);
   const { size, camera } = useThree();
   const scratch = useRef({
     matrix: new THREE.Matrix4(),
     scale: new THREE.Vector3(),
     color: new THREE.Color(),
     light: new THREE.Color(),
+    air: new THREE.Color(),
     zero: new THREE.Matrix4().makeScale(0, 0, 0),
   });
 
@@ -126,32 +126,19 @@ export default function WaterFx() {
     [foamTexture]
   );
 
-  const ringGeometry = useMemo(() => new THREE.RingGeometry(0.95, 1, 64, 1).rotateX(-Math.PI / 2), []);
-  const ringMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        toneMapped: false,
-      }),
-    []
-  );
-
   useEffect(
     () => () => {
-      [geometry, material, foamTexture, foamGeometry, foamMaterial, ringGeometry, ringMaterial].forEach((item) => item.dispose());
+      [geometry, material, foamTexture, foamGeometry, foamMaterial].forEach((item) => item.dispose());
     },
-    [geometry, material, foamTexture, foamGeometry, foamMaterial, ringGeometry, ringMaterial]
+    [geometry, material, foamTexture, foamGeometry, foamMaterial]
   );
 
   useFrame((_, delta) => {
     const s = scratch.current;
     stepWaterFx(Math.min(delta, 0.05));
     const snapshot = getFrameSnapshot();
-    const daylight = daylightOf(snapshot);
-    // Lit like the scene: white by day, warm at dusk, a dim moonlit grey at night.
-    s.light.setHex(snapshot.lightColorHex).lerp(WHITE, 0.4).multiplyScalar(0.18 + 0.82 * daylight);
+    // Water's color: the sea's, mixed with the air it reflects, a shade lighter.
+    s.light.setHex(snapshot.waterColorHex).lerp(hazeColor(snapshot, s.air), 0.7).multiplyScalar(1.2);
 
     const points = pointsRef.current;
     if (points) {
@@ -184,37 +171,17 @@ export default function WaterFx() {
         foamMesh.setMatrixAt(i, s.matrix);
         // Quick to appear, slow to break up.
         const fade = Math.min(1, t * 12) * Math.pow(1 - t, 1.4) * foam.strength[i];
-        s.color.copy(s.light).multiplyScalar(fade * 0.85);
+        s.color.copy(s.light).multiplyScalar(fade * 0.4);
         foamMesh.setColorAt(i, s.color);
       }
       foamMesh.instanceMatrix.needsUpdate = true;
       if (foamMesh.instanceColor) foamMesh.instanceColor.needsUpdate = true;
-    }
-
-    const ringMesh = ringsRef.current;
-    if (ringMesh) {
-      for (let i = 0; i < MAX_RINGS; i++) {
-        const t = rings.life[i] > 0 ? rings.age[i] / rings.life[i] : 1;
-        if (t >= 1) {
-          ringMesh.setMatrixAt(i, s.zero);
-          continue;
-        }
-        const radius = rings.size[i] * (0.3 + 1.7 * (1 - (1 - t) * (1 - t)));
-        s.matrix.makeScale(radius, 1, radius).setPosition(rings.x[i], WATER_Y, rings.z[i]);
-        ringMesh.setMatrixAt(i, s.matrix);
-        // Barely there: real ripples show as a change in the reflection.
-        s.color.copy(s.light).multiplyScalar(Math.pow(1 - t, 1.8) * rings.strength[i] * 0.14);
-        ringMesh.setColorAt(i, s.color);
-      }
-      ringMesh.instanceMatrix.needsUpdate = true;
-      if (ringMesh.instanceColor) ringMesh.instanceColor.needsUpdate = true;
     }
   });
 
   return (
     <>
       <instancedMesh ref={foamRef} args={[foamGeometry, foamMaterial, MAX_FOAM]} frustumCulled={false} onUpdate={(mesh) => hideAll(mesh, MAX_FOAM)} />
-      <instancedMesh ref={ringsRef} args={[ringGeometry, ringMaterial, MAX_RINGS]} frustumCulled={false} onUpdate={(mesh) => hideAll(mesh, MAX_RINGS)} />
       <points ref={pointsRef} geometry={geometry} material={material} frustumCulled={false} />
     </>
   );

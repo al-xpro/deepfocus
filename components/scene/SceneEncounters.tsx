@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { vecFromSpherical } from "./timeUtils";
 import { getFrameSnapshot } from "./sceneFrame";
-import { Landmark, PLACEMENTS, ReefPalms, Volcano } from "./landscape";
+import { addSolidCore, Landmark, PLACEMENTS, ReefPalms, Volcano } from "./landscape";
 import Dolphins from "./dolphins/Dolphins";
 import WaterFx from "./fx/WaterFx";
 import Gulls from "./life/Gulls";
@@ -39,12 +39,15 @@ function EncounterLightRig() {
       return;
 
     const scene = getFrameSnapshot();
+    // Direct sunlight fades as the sun reaches the horizon: in twilight the
+    // models are lit by the sky, not by a sun that has already set.
+    const sunUp = THREE.MathUtils.smoothstep(scene.sunElev, -3, 6);
 
     vecFromSpherical(Math.max(scene.sunElev, 4), scene.sunAz, _sunVector.current);
     sunLightRef.current.position.copy(_sunVector.current).multiplyScalar(360);
     sunLightRef.current.target = targetRef.current;
     sunLightRef.current.color.setHex(scene.lightColorHex);
-    sunLightRef.current.intensity = THREE.MathUtils.lerp(0.26, 1.95, 1 - scene.nightFactor);
+    sunLightRef.current.intensity = THREE.MathUtils.lerp(0.26, 1.95 * (0.2 + 0.8 * sunUp), 1 - scene.nightFactor);
 
     _glareOffset.current.set(120, 58, 190);
     glareLightRef.current.position
@@ -53,12 +56,12 @@ function EncounterLightRig() {
       .add(_glareOffset.current);
     glareLightRef.current.target = targetRef.current;
     glareLightRef.current.color.setHex(scene.sunColorHex);
-    glareLightRef.current.intensity = THREE.MathUtils.lerp(0.05, 0.94, 1 - scene.nightFactor);
+    glareLightRef.current.intensity = THREE.MathUtils.lerp(0.05, 0.94 * sunUp, 1 - scene.nightFactor);
 
     fillLightRef.current.position.set(220, 145, 260);
     fillLightRef.current.target = targetRef.current;
     fillLightRef.current.color.setHex(scene.lightColorHex);
-    fillLightRef.current.intensity = THREE.MathUtils.lerp(0.18, 0.92, 1 - scene.nightFactor);
+    fillLightRef.current.intensity = THREE.MathUtils.lerp(0.18, 0.92 * (0.35 + 0.65 * sunUp), 1 - scene.nightFactor);
 
     vecFromSpherical(Math.max(scene.moonElev, 6), scene.moonAz, _moonVector.current);
     moonLightRef.current.position.copy(_moonVector.current).multiplyScalar(340);
@@ -108,7 +111,7 @@ export default function SceneEncounters() {
       <EncounterLightRig />
 
       <Arrival>
-        <Landmark placement={PLACEMENTS.promontory} />
+        <Landmark placement={PLACEMENTS.promontory} onModel={addSolidCore} />
       </Arrival>
       <Arrival>
         <Landmark placement={PLACEMENTS.reef} onModel={setReef}>

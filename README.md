@@ -32,9 +32,9 @@ whose sky, light and water follow the visitor's clock.
 - A night sky drawn from canvas textures, with no image downloads: about 3,700 stars,
   constellation lines, shooting stars, a moon and a sun glow
 - A living sea: a pod of dolphins that cruise, breathe at the surface and leap together on
-  real ballistic arcs (porpoising, the occasional breach), with spray, foam and ripples;
-  seagulls that cross the view, land on the water to feed or stand on the rocks; palms on
-  a small island moving in the wind; and a distant active volcano with a plume of steam
+  real ballistic arcs (porpoising, the occasional breach), with spray, foam and ripples
+  in the water itself; seagulls by day, a flock passing high or a few landing on the water
+  to feed or on the rocks; palms on a small island moving in the wind; and a distant active volcano with a plume of steam
   and a dim crater glow at night
 - Focus mode (`F`): the page steps aside for the scene, with 15, 30 or 60-minute focus
   sessions shown as a progress bar; they survive a reload and end with a soft bell

@@ -11,6 +11,17 @@ export interface MaterialTuning {
   roughness?: number;
   metalness?: number;
   colorBoost?: number;
+  /**
+   * How much a baked occlusion map darkens the indirect light (1 = fully). Faces
+   * turned from the sun get almost only indirect light, so a strong map keeps
+   * them dark whatever the color.
+   */
+  aoIntensity?: number;
+  /**
+   * Drops the roughness map: the roughness value is multiplied by it, and a dark
+   * map leaves a rock shiny (mirroring the white sky) whatever the value.
+   */
+  matte?: boolean;
   /** Multiplies the base color: shifts a model's palette. */
   tint?: string;
 }
@@ -33,6 +44,8 @@ function enhanceMaterials(model: THREE.Object3D, tuning: MaterialTuning) {
       if (tuning.roughness !== undefined) material.roughness = tuning.roughness;
       if (tuning.metalness !== undefined) material.metalness = tuning.metalness;
       if (tuning.colorBoost !== undefined) material.color.multiplyScalar(tuning.colorBoost);
+      if (tuning.aoIntensity !== undefined) material.aoMapIntensity = tuning.aoIntensity;
+      if (tuning.matte) material.roughnessMap = null;
       if (tuning.tint !== undefined) material.color.multiply(new THREE.Color(tuning.tint));
       material.needsUpdate = true;
     }

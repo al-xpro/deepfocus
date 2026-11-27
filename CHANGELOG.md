@@ -10,10 +10,13 @@ All notable changes to this project, newest first. Versions follow
 - A living sea (v1.2, #31, #32, #34, #38): dolphins driven by a pure, tested behavior
   module (ballistic leaps, porpoising, breaches, breathing, formation by steering, active
   by day) that leap together, facing the way they move, in the water the visitor is
-  looking at; spray, foam, ripples and breath where they meet the water; seagulls, never a
-  flock, that cross the view in ones to fours, land on the water to feed, or stand on the
-  rocks for a while; palms on the reef that move in the wind. `?life` in the URL brings
-  the gulls on quickly.
+  looking at; spray, foam and breath where they meet the water, and ripples in the water
+  itself (they bend its reflection, so they stay transparent and take its color);
+  seagulls, from sunrise to sunset: a flock of eight to twelve passing high over the sea,
+  and ones to threes landing on the water to feed or standing on the rocks, all coming
+  from and leaving for the far distance; palms on the reef that move in the wind. The
+  dolphins and gulls show only while the sun is up. `?life` in the URL brings the gulls
+  on quickly.
 - Round, twinkling stars; a haze tinted by the sky.
 - Tests (Vitest) in CI.
 - README, license, code of conduct, contributing guide, security policy, support and
@@ -43,7 +46,8 @@ All notable changes to this project, newest first. Versions follow
 - The volcano is far out on the horizon and active: a small plume of pale steam in the
   color of the air, and a dim glow over the crater at night. The promontory keeps its
   texture (70K triangles) with no holes to the sky: the scan's pieces are joined and its
-  near-identical vertices snapped before simplifying. Material values sit inside their real
+  near-identical vertices snapped before simplifying, and a solid core sits under the
+  canopy. Sunlight fades as the sun sets, so nothing is lit by a sun below the horizon. Material values sit inside their real
   ranges (the sea stacks are light grey by day), and the dolphins avoid the models' real
   footprints. The scene's state is computed once per frame.
 - Next.js 16.2.1 → 16.4.5 (security fixes).

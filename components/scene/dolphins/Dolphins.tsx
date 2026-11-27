@@ -25,11 +25,14 @@ function yawFor(heading: number) {
   return Math.PI - heading;
 }
 
+/** Which dolphins are shown: only between sunrise and sunset (a leap under way finishes). */
+const shown: boolean[] = [];
+
 const events: DolphinEvents = {
-  exit: (d) => waterFx.splash(d.x, d.z, d.kind === "breach" ? 1.5 : d.kind === "porpoise" ? 0.7 : 1, d.heading),
-  entry: (d) => waterFx.splash(d.x, d.z, d.kind === "breach" ? 2 : d.kind === "porpoise" ? 0.8 : 1.2, d.heading),
-  breath: (d) => waterFx.breath(d.x, d.y, d.z),
-  wake: (d) => waterFx.wake(d.x - Math.sin(d.heading) * 8, d.z + Math.cos(d.heading) * 8),
+  exit: (d) => shown[d.id] && waterFx.splash(d.x, d.z, d.kind === "breach" ? 1.5 : d.kind === "porpoise" ? 0.7 : 1, d.heading),
+  entry: (d) => shown[d.id] && waterFx.splash(d.x, d.z, d.kind === "breach" ? 2 : d.kind === "porpoise" ? 0.8 : 1.2, d.heading),
+  breath: (d) => shown[d.id] && waterFx.breath(d.x, d.y, d.z),
+  wake: (d) => shown[d.id] && waterFx.wake(d.x - Math.sin(d.heading) * 8, d.z + Math.cos(d.heading) * 8),
 };
 
 export default function Dolphins() {
@@ -104,6 +107,8 @@ export default function Dolphins() {
     dolphins.forEach((d, i) => {
       const group = groups.current[i];
       if (!group) return;
+      if (d.phase !== "airborne") shown[d.id] = snapshot.sunElev > 0.5;
+      group.visible = shown[d.id] ?? false;
       group.position.set(d.x, d.y, d.z);
       group.rotation.set(-d.pitch, yawFor(d.heading), d.bank);
 

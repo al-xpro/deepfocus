@@ -16,8 +16,17 @@ import type { Obstacle } from "./dolphins/brain";
 
 const PROMONTORY_TUNING: MaterialTuning = { envMapIntensity: 1.1, roughness: 0.92, metalness: 0, colorBoost: 1.1 };
 const REEF_TUNING: MaterialTuning = { envMapIntensity: 1.1, roughness: 0.95, metalness: 0, colorBoost: 1.1 };
-const CLIFF_TUNING: MaterialTuning = { envMapIntensity: 1.5, roughness: 0.85, metalness: 0, colorBoost: 1.9 };
-const SEA_STACK_TUNING: MaterialTuning = { envMapIntensity: 1.5, roughness: 0.82, metalness: 0, colorBoost: 2.0 };
+// The rocks near the viewer: a natural light grey by day. Seen from the camera,
+// their faces turn from the sun, so they get almost only sky light: the color is
+// lifted (each texture by its own darkness), the baked occlusion softened, and
+// they're made matte (their roughness maps left them shiny, mirroring the white
+// sky like ice).
+/** The tall stack (`cliff_rock.glb`): the lightest texture. */
+const CLIFF_TUNING: MaterialTuning = { envMapIntensity: 0.9, roughness: 0.92, metalness: 0, colorBoost: 1.5, aoIntensity: 0.3, matte: true };
+/** The small stack beside it (`group_of_cliff_1.glb`): a dark texture. */
+const SMALL_STACK_TUNING: MaterialTuning = { envMapIntensity: 0.9, roughness: 0.92, metalness: 0, colorBoost: 3.2, matte: true };
+/** The group of basalt columns (`group_of_cliff_2.glb`): the darkest texture. */
+const COLUMNS_TUNING: MaterialTuning = { envMapIntensity: 0.9, roughness: 0.92, metalness: 0, colorBoost: 6.5, aoIntensity: 0.2, matte: true };
 const VOLCANO_TUNING: MaterialTuning = { envMapIntensity: 0.9, roughness: 0.95, metalness: 0, colorBoost: 1 };
 
 /**
@@ -41,8 +50,8 @@ export const PLACEMENTS = {
   promontory: { url: "/models/promontory.glb", tuning: PROMONTORY_TUNING, radius: 2000, angle: 20, y: -14, scale: 2, rotationY: -0.2, halfExtent: 190 },
   reef: { url: "/models/rock_reef.glb", tuning: REEF_TUNING, radius: 900, angle: 150, y: -3, scale: 1, rotationY: 1, halfExtent: 175 },
   cliffRock: { url: "/models/cliff_rock.glb", tuning: CLIFF_TUNING, radius: 200, angle: 200, y: -2, scale: 1, rotationY: 0, halfExtent: 12 },
-  seaStacks: { url: "/models/group_of_cliff_1.glb", tuning: SEA_STACK_TUNING, radius: 170, angle: 210, y: 0, scale: 0.01, rotationY: 0, halfExtent: 1200 },
-  seaStacksSmall: { url: "/models/group_of_cliff_2.glb", tuning: SEA_STACK_TUNING, radius: 230, angle: 180, y: 0, scale: 0.01, rotationY: 1, halfExtent: 1370 },
+  seaStacks: { url: "/models/group_of_cliff_1.glb", tuning: SMALL_STACK_TUNING, radius: 170, angle: 210, y: 0, scale: 0.01, rotationY: 0, halfExtent: 1200 },
+  seaStacksSmall: { url: "/models/group_of_cliff_2.glb", tuning: COLUMNS_TUNING, radius: 230, angle: 180, y: 0, scale: 0.01, rotationY: 1, halfExtent: 1370 },
   // An active volcano very far out, a small silhouette in the haze.
   volcano: { url: "/models/volcano.glb", tuning: VOLCANO_TUNING, radius: 14000, angle: 275, y: -2, scale: 22, rotationY: 0.6, halfExtent: 50 },
 } satisfies Record<string, Placement>;
@@ -91,9 +100,130 @@ export function Landmark({
   );
 }
 
+// ── The promontory's core ───────────────────────────────────────────────────
+
+const CORE_GRID = 64;
+
+/**
+ * A solid core under the promontory's canopy. The scan isn't watertight: here
+ * and there its patches leave a gap, and the sky showed through the trees. This
+ * heightfield sits a little below the canopy everywhere and closes them with the
+ * dark of the forest floor. Built once from the model's own vertices: the highest
+ * point in each cell of a 64 × 64 grid, the lowest of each cell's neighbours, then
+ * lowered a little. About 8K triangles, nothing to download.
+ */
+export function addSolidCore(model: THREE.Object3D) {
+  if (model.userData.core) return;
+  model.userData.core = true;
+  model.updateWorldMatrix(true, true);
+  const toModel = new THREE.Matrix4().copy(model.matrixWorld).invert();
+  const local = new THREE.Matrix4();
+  const point = new THREE.Vector3();
+  const box = new THREE.Box3();
+  const meshes: Array<{ position: THREE.BufferAttribute | THREE.InterleavedBufferAttribute; matrix: THREE.Matrix4 }> = [];
+  model.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const matrix = local.multiplyMatrices(toModel, mesh.matrixWorld).clone();
+    const position = mesh.geometry.getAttribute("position");
+    meshes.push({ position, matrix });
+    for (let i = 0; i < position.count; i++) box.expandByPoint(point.fromBufferAttribute(position, i).applyMatrix4(matrix));
+  });
+  if (box.isEmpty()) return;
+
+  const n = CORE_GRID;
+  const sizeX = box.max.x - box.min.x;
+  const sizeZ = box.max.z - box.min.z;
+  const top = new Float32Array(n * n).fill(-Infinity);
+  for (const { position, matrix } of meshes) {
+    for (let i = 0; i < position.count; i++) {
+      point.fromBufferAttribute(position, i).applyMatrix4(matrix);
+      const ix = Math.min(n - 1, Math.floor(((point.x - box.min.x) / sizeX) * n));
+      const iz = Math.min(n - 1, Math.floor(((point.z - box.min.z) / sizeZ) * n));
+      const k = iz * n + ix;
+      if (point.y > top[k]) top[k] = point.y;
+    }
+  }
+  const floor = box.min.y - 1;
+  const inset = (box.max.y - box.min.y) * 0.03;
+  const heights = new Float32Array(n * n);
+  for (let iz = 0; iz < n; iz++) {
+    for (let ix = 0; ix < n; ix++) {
+      let lowest = Infinity;
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = ix + dx;
+          const z = iz + dz;
+          const value = x < 0 || z < 0 || x >= n || z >= n ? -Infinity : top[z * n + x];
+          lowest = Math.min(lowest, value);
+        }
+      }
+      heights[iz * n + ix] = Number.isFinite(lowest) ? lowest - inset : floor;
+    }
+  }
+
+  const vertices = new Float32Array(n * n * 3);
+  for (let iz = 0; iz < n; iz++) {
+    for (let ix = 0; ix < n; ix++) {
+      const k = iz * n + ix;
+      vertices[k * 3] = box.min.x + ((ix + 0.5) / n) * sizeX;
+      vertices[k * 3 + 1] = heights[k];
+      vertices[k * 3 + 2] = box.min.z + ((iz + 0.5) / n) * sizeZ;
+    }
+  }
+  const indices: number[] = [];
+  for (let iz = 0; iz < n - 1; iz++) {
+    for (let ix = 0; ix < n - 1; ix++) {
+      const a = iz * n + ix;
+      indices.push(a, a + n, a + 1, a + 1, a + n, a + n + 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const core = new THREE.Mesh(
+    geometry,
+    new THREE.MeshStandardMaterial({ color: "#24301d", roughness: 1, metalness: 0, envMapIntensity: 0.6, side: THREE.DoubleSide })
+  );
+  core.name = "solid-core";
+  model.add(core);
+}
+
 // ── The volcano ─────────────────────────────────────────────────────────────
 
 const CRATER_GLOW = new THREE.Color("#ff7a3a");
+
+/** How much of the air lies between the viewer and the volcano, at the least. */
+const AERIAL = { value: 0.5 };
+
+/**
+ * Aerial perspective: 14,000 units out, the volcano takes at least half its color
+ * from the haze, whatever the light on it. It reads pale by day and dark at
+ * dawn, dusk and night, as the air does, instead of standing out lit.
+ */
+function addAerialPerspective(model: THREE.Object3D) {
+  model.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const material = mesh.material as THREE.Material;
+    if (material.userData.aerial) return;
+    material.userData.aerial = true;
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uAerial = AERIAL;
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", "#include <common>\nuniform float uAerial;")
+        .replace(
+          "#include <fog_fragment>",
+          `#ifdef USE_FOG
+            float aerialFog = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+            gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, max( aerialFog, uAerial ) );
+          #endif`
+        );
+    };
+    material.needsUpdate = true;
+  });
+}
 
 /**
  * An active volcano far out: a plume by day, and at night a small, dim glow
@@ -123,7 +253,7 @@ export function Volcano() {
   );
 
   return (
-    <Landmark placement={PLACEMENTS.volcano}>
+    <Landmark placement={PLACEMENTS.volcano} onModel={addAerialPerspective}>
       {/* Centered on the crater: the cone hides its lower half, so it reads as light over the rim. */}
       <sprite ref={glow} position={summit} scale={[240, 120, 1]} visible={false}>
         <spriteMaterial
@@ -210,12 +340,14 @@ const PALM_SCALE = 0.0105;
 const wind = { uTime: { value: 0 }, uStrength: { value: 1 } };
 
 /**
- * Wind in the palms, in the vertex shader: the trunk leans gently, more toward
- * the top; the fronds sway and flutter. The model's trees stand along their
- * local z (in centimetres), so height is position.z. Each palm gets its own
- * phase from where it stands.
+ * Wind in the palms, in the vertex shader. The model's trees stand along their
+ * local z, in centimetres, with the trunk at x = y = 0. The whole tree bends from
+ * its base, more toward the top; each frond lifts and falls as one piece, a little
+ * out of step with its neighbours (the motion depends on the frond's direction
+ * around the crown, never on fine detail, so nothing ripples or folds). Each palm
+ * gets its own phase from where it stands.
  */
-function addWind(material: THREE.Material, frond: boolean) {
+function addWind(material: THREE.Material) {
   if (material.userData.wind) return;
   material.userData.wind = true;
   material.onBeforeCompile = (shader) => {
@@ -228,13 +360,13 @@ function addWind(material: THREE.Material, frond: boolean) {
         `#include <begin_vertex>
         float h = clamp(position.z / 2450.0, 0.0, 1.0);
         float phase = modelMatrix[3][0] * 0.031 + modelMatrix[3][2] * 0.017;
-        float gust = 0.65 + 0.35 * sin(uTime * 0.37 + phase);
-        float lean = sin(uTime * 1.1 + phase) * 22.0 * h * h * gust;
-        transformed.x += lean * uStrength;
-        transformed.y += cos(uTime * 0.9 + phase) * 9.0 * h * h * gust * uStrength;
-        ${frond
-          ? "transformed.z += sin(uTime * 3.4 + position.x * 0.012 + position.y * 0.01 + phase) * 26.0 * h * gust * uStrength;\n        transformed.x += sin(uTime * 2.7 + position.y * 0.015 + phase) * 14.0 * h * gust * uStrength;"
-          : ""}`
+        float gust = (0.6 + 0.4 * sin(uTime * 0.31 + phase)) * uStrength;
+        float bend = h * h * gust;
+        transformed.x += sin(uTime * 0.8 + phase) * 28.0 * bend;
+        transformed.y += sin(uTime * 0.63 + phase * 1.7) * 12.0 * bend;
+        float reach = clamp(length(position.xy) / 320.0, 0.0, 1.0);
+        float around = atan(position.y, position.x);
+        transformed.z += sin(uTime * 1.9 + around * 2.0 + phase) * 16.0 * reach * reach * h * gust;`
       );
   };
   material.needsUpdate = true;
@@ -269,7 +401,7 @@ export function ReefPalms({ reef }: { reef: THREE.Object3D | null }) {
           material.alphaTest = 0.15;
           material.alphaToCoverage = true;
         }
-        addWind(material, /frond/i.test(material.name));
+        addWind(material);
       });
       return tree;
     });
@@ -295,9 +427,12 @@ export function ReefPalms({ reef }: { reef: THREE.Object3D | null }) {
       spots.push(hit.point.clone());
     }
     const placed = spots.map((spot, i) => {
-      const palm = trees[i % trees.length].clone(true);
+      // The tree node carries the model's own rotation (its z up); a parent turns it
+      // around its trunk and gives it a palm's slight lean.
+      const palm = new THREE.Group();
+      palm.add(trees[i % trees.length].clone(true));
       palm.position.copy(spot);
-      palm.rotation.y = random() * Math.PI * 2;
+      palm.rotation.set((random() - 0.5) * 0.16, random() * Math.PI * 2, (random() - 0.5) * 0.16, "YXZ");
       palm.scale.setScalar(PALM_SCALE * (0.85 + random() * 0.35));
       holder.add(palm);
       return palm;

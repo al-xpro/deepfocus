@@ -1,10 +1,11 @@
-// Water contact: droplets and mist (particles), foam patches and faint ripples.
-// Anything in the scene emits through `waterFx`; WaterFx.tsx draws the pools.
+// Water contact: droplets and mist (particles), foam patches and ripples.
+// Anything in the scene emits through `waterFx`; WaterFx.tsx draws the particles
+// and the foam, and the water's own shader draws the ripples (Ocean.tsx).
 // Fixed-size ring buffers: no allocation per splash, the oldest is reused.
 
 export const MAX_PARTICLES = 1400;
 export const MAX_FOAM = 64;
-export const MAX_RINGS = 40;
+export const MAX_RINGS = 16;
 
 export const ParticleKind = { Droplet: 0, Mist: 1 } as const;
 type ParticleKind = (typeof ParticleKind)[keyof typeof ParticleKind];
@@ -113,7 +114,7 @@ export const waterFx = {
     }
     spawnFoam(x, z, 7 * strength, 3.2, 1);
     spawnFoam(x + fx * 4 * strength, z + fz * 4 * strength, 5 * strength, 2.4, 0.7);
-    spawnRing(x, z, 10 * strength, 2.6, 0.8);
+    spawnRing(x, z, 9 * strength, 3.2, 0.9);
   },
 
   /** A dolphin breathing at the surface: a small soft puff of mist and a little foam. */
@@ -135,7 +136,7 @@ export const waterFx = {
 
   /** A small, quiet disturbance: a gull's bill going under, a landing. */
   ripple(x: number, z: number, size = 4, strength = 0.6) {
-    spawnRing(x, z, size, 2.2, strength);
+    spawnRing(x, z, size, 2.6, strength);
     spawnFoam(x, z, size * 0.35, 1.2, strength * 0.5);
   },
 };
